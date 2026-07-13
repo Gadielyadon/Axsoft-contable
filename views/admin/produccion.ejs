@@ -1,0 +1,64 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Producción y objetivo</h1>
+
+<div class="card">
+  <h2 class="sub">Objetivo del evento</h2>
+  <p class="muted" style="margin:0 0 10px;">La proyección sale de tu producción real, no de suposiciones sobre la multitud.</p>
+  <form method="post" action="/admin/produccion/objetivo">
+    <label for="pr-obj">Objetivo de venta ($)</label>
+    <input type="number" id="pr-obj" name="objetivo" inputmode="numeric" value="<%= objetivo %>">
+    <button class="primary" type="submit">Guardar objetivo</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="sub">Agregar categoría de producción</h2>
+  <form method="post" action="/admin/produccion">
+    <label for="pd-nom">Categoría / producto</label>
+    <input type="text" id="pd-nom" name="nombre" placeholder="Ej: Trenza kanekalon" required>
+    <div class="row2">
+      <div><label for="pd-cant">Unidades listas</label><input type="number" id="pd-cant" name="cantidad" inputmode="numeric" placeholder="0"></div>
+      <div><label for="pd-prec">Precio venta</label><input type="number" id="pd-prec" name="precio" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <label for="pd-costo">Costo por unidad (materiales + mano de obra)</label>
+    <input type="number" id="pd-costo" name="costo" inputmode="numeric" placeholder="0">
+    <button class="primary" type="submit">Agregar categoría</button>
+  </form>
+</div>
+
+<h2 class="sub">Tu producción cargada</h2>
+<% if (!produccion.length) { %>
+  <div class="empty">Todavía no cargaste categorías de producción.</div>
+<% } else { produccion.forEach(function(p){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/admin/produccion/<%= p.id %>/borrar" data-confirm="¿Borrar <%= p.nombre %>?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= p.nombre %></span>
+      <span class="amount"><%= fmt(p.cantidad * p.precio) %></span>
+    </div>
+    <div class="meta">
+      <span><%= p.cantidad %> un.</span>
+      <span><%= fmt(p.precio) %> c/u</span>
+      <% if (p.costo) { %><span>costo <%= fmt(p.costo) %> c/u</span><% } %>
+    </div>
+  </div>
+<% }); } %>
+
+<div class="stat-grid" style="margin-top:14px;">
+  <div class="stat"><div class="lbl">Ingreso si vendés todo</div><div class="val pos"><%= fmt(ingreso) %></div></div>
+  <div class="stat"><div class="lbl">Costo materiales</div><div class="val neg"><%= fmt(costo) %></div></div>
+  <div class="stat wide"><div class="lbl">Margen bruto potencial</div><div class="val <%= margen>=0?'pos':'neg' %>"><%= fmt(margen) %></div></div>
+  <div class="stat wide">
+    <div class="lbl">Vs. objetivo</div>
+    <div class="val <%= diffObjetivo===null ? '' : (diffObjetivo>=0?'pos':'neg') %>" style="font-size:14px;">
+      <% if (diffObjetivo===null) { %>Cargá un objetivo arriba
+      <% } else if (diffObjetivo>=0) { %>Cubre el objetivo, con margen de <%= fmt(diffObjetivo) %>
+      <% } else { %>Faltarían <%= fmt(-diffObjetivo) %> para llegar<% } %>
+    </div>
+  </div>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

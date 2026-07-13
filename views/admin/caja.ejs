@@ -1,0 +1,58 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Caja</h1>
+
+<div class="card filter-card">
+  <div class="filter-row">
+    <a class="ghost filter-btn <%= filtro==='hoy' ? 'active' : '' %>" href="/admin/caja?filtro=hoy">Hoy</a>
+    <a class="ghost filter-btn <%= filtro==='todos' ? 'active' : '' %>" href="/admin/caja?filtro=todos">Todos los días</a>
+    <button type="button" class="ghost filter-btn <%= filtro==='rango' ? 'active' : '' %>" onclick="document.getElementById('caja-fecha-form').classList.toggle('open')">Elegir fecha</button>
+  </div>
+  <form id="caja-fecha-form" method="get" action="/admin/caja" class="fecha-form <%= filtro==='rango' ? 'open' : '' %>">
+    <input type="hidden" name="filtro" value="rango">
+    <div class="row2">
+      <div><label for="f-desde">Desde</label><input type="date" id="f-desde" name="desde" value="<%= desde %>" required></div>
+      <div><label for="f-hasta">Hasta (opcional)</label><input type="date" id="f-hasta" name="hasta" value="<%= hasta %>"></div>
+    </div>
+    <button class="primary" type="submit" style="margin-top:10px;">Filtrar</button>
+  </form>
+  <% if (filtro==='rango' && desde) { %>
+    <div class="muted" style="margin-top:8px;">Mostrando <%= (hasta && hasta!==desde) ? (desde + ' al ' + hasta) : desde %></div>
+  <% } %>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="lbl">Ventas</div><div class="val pos"><%= fmt(totalVentas) %></div></div>
+  <div class="stat"><div class="lbl">Gastos</div><div class="val neg"><%= fmt(totalGastos) %></div></div>
+  <div class="stat wide"><div class="lbl">Neto</div><div class="val <%= neto>=0 ? 'pos':'neg' %>"><%= fmt(neto) %></div></div>
+</div>
+
+<div class="card">
+  <h2 class="sub">Producción vs. real (acumulado)</h2>
+  <div class="bar"><span>Ingreso si vendés toda la producción</span><span class="v"><%= fmt(proyTotal) %></span></div>
+  <div class="bar"><span>Vendido hasta ahora</span><span class="v"><%= fmt(realAcum) %></span></div>
+  <div class="bar"><span>% de la proyección alcanzado</span><span class="v"><%= proyPct===null ? '—' : proyPct + '%' %></span></div>
+</div>
+
+<div class="card">
+  <h2 class="sub">Por medio de pago</h2>
+  <% if (!porPago.length) { %><div class="muted">Sin ventas todavía.</div><% } else { porPago.forEach(function(p){ %>
+    <div class="bar"><span><%= p[0] %></span><span class="v"><%= fmt(p[1]) %></span></div>
+  <% }); } %>
+</div>
+
+<div class="card">
+  <h2 class="sub">Por vendedora</h2>
+  <% if (!vendedores.length) { %><div class="muted">Sin ventas todavía.</div><% } else { vendedores.forEach(function(v){ %>
+    <div class="bar"><span><%= v[0] %></span><span class="v"><%= fmt(v[1]) %></span></div>
+  <% }); } %>
+</div>
+
+<div class="card">
+  <h2 class="sub">Pedidos con saldo pendiente</h2>
+  <% if (!pedientes.length) { %><div class="muted">No hay saldos pendientes.</div><% } else { pedientes.forEach(function(p){ %>
+    <div class="bar"><span><%= p.cliente %><%= p.tipo ? ' — ' + p.tipo : '' %></span><span class="v"><%= fmt(Math.max(p.total - p.sena, 0)) %></span></div>
+  <% }); } %>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

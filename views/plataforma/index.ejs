@@ -1,0 +1,51 @@
+<%- include('../partials/head') %>
+<h1 class="title">Negocios en la plataforma</h1>
+
+<% if (error) { %><div class="alert"><%= error %></div><% } %>
+<% if (ok) { %><div class="alert ok">Negocio creado. La dueña ya puede iniciar sesión con su usuario.</div><% } %>
+
+<div class="card">
+  <h2 class="sub">Dar de alta un negocio</h2>
+  <form method="post" action="/plataforma/negocios">
+    <label for="n-nom">Nombre del negocio</label>
+    <input type="text" id="n-nom" name="nombre" placeholder="Ej: Tú Eres Luz" required>
+    <div class="row2">
+      <div><label for="n-rubro">Rubro</label><input type="text" id="n-rubro" name="rubro" placeholder="Ej: Peluquería"></div>
+      <div>
+        <label for="n-plan">Plan</label>
+        <select id="n-plan" name="plan"><option value="basico">Básico</option><option value="pro">Pro</option><option value="premium">Premium</option></select>
+      </div>
+    </div>
+    <div style="height:1px; background:var(--line); margin:16px 0;"></div>
+    <p class="muted" style="margin:0 0 4px;">Cuenta de la dueña (con esto entra a su panel):</p>
+    <label for="d-nom">Nombre de la dueña</label>
+    <input type="text" id="d-nom" name="dueno_nombre" placeholder="Nombre y apellido" required>
+    <div class="row2">
+      <div><label for="d-user">Usuario</label><input type="text" id="d-user" name="dueno_usuario" autocapitalize="none" placeholder="duena_luz" required></div>
+      <div><label for="d-pass">Contraseña</label><input type="text" id="d-pass" name="dueno_password" placeholder="mín. 4" required></div>
+    </div>
+    <button class="primary" type="submit">Crear negocio</button>
+  </form>
+</div>
+
+<h2 class="sub">Negocios (<%= negocios.length %>)</h2>
+<% if (!negocios.length) { %>
+  <div class="empty">Todavía no diste de alta ningún negocio.</div>
+<% } else { negocios.forEach(function(n){ %>
+  <div class="item">
+    <div class="head">
+      <span class="name"><%= n.nombre %></span>
+      <span class="state <%= n.activo ? 'listo':'pendiente' %>"><%= n.activo ? 'Activo':'Inactivo' %></span>
+    </div>
+    <div class="meta">
+      <% if (n.rubro) { %><span class="chip"><%= n.rubro %></span><% } %>
+      <span class="chip pay">plan <%= n.plan %></span>
+      <span><%= n.usuarios %> usuario(s)</span>
+      <span>facturado: <%= fmt(n.facturado) %></span>
+    </div>
+    <form class="inline-form" method="post" action="/plataforma/negocios/<%= n.id %>/toggle">
+      <button class="ghost" type="submit" style="margin-top:9px;"><%= n.activo ? 'Desactivar' : 'Reactivar' %></button>
+    </form>
+  </div>
+<% }); } %>
+<%- include('../partials/foot') %>

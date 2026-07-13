@@ -1,0 +1,73 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Reportes</h1>
+<p class="muted" style="margin:-6px 0 16px;">Descargá cualquier sección como Excel (.xlsx), listo para abrir.</p>
+
+<div class="card filter-card">
+  <div style="font-size:11px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:10px;">
+    Fecha para Ventas, Gastos y Caja
+  </div>
+  <div class="filter-row">
+    <a class="ghost filter-btn <%= filtro==='hoy' ? 'active' : '' %>" href="/admin/reportes?filtro=hoy">Hoy</a>
+    <a class="ghost filter-btn <%= filtro==='todos' ? 'active' : '' %>" href="/admin/reportes?filtro=todos">Todos los días</a>
+    <button type="button" class="ghost filter-btn <%= filtro==='rango' ? 'active' : '' %>" onclick="document.getElementById('rep-fecha-form').classList.toggle('open')">Elegir fecha</button>
+  </div>
+  <form id="rep-fecha-form" method="get" action="/admin/reportes" class="fecha-form <%= filtro==='rango' ? 'open' : '' %>">
+    <input type="hidden" name="filtro" value="rango">
+    <div class="row2">
+      <div><label for="rf-desde">Desde</label><input type="date" id="rf-desde" name="desde" value="<%= desde %>" required></div>
+      <div><label for="rf-hasta">Hasta (opcional)</label><input type="date" id="rf-hasta" name="hasta" value="<%= hasta %>"></div>
+    </div>
+    <button class="primary" type="submit" style="margin-top:10px;">Aplicar</button>
+  </form>
+  <% if (filtro==='rango' && desde) { %>
+    <div class="muted" style="margin-top:8px;">Rango elegido: <%= (hasta && hasta!==desde) ? (desde + ' al ' + hasta) : desde %></div>
+  <% } else if (filtro==='hoy') { %>
+    <div class="muted" style="margin-top:8px;">Vas a descargar solo lo de hoy.</div>
+  <% } else { %>
+    <div class="muted" style="margin-top:8px;">Vas a descargar el historial completo.</div>
+  <% } %>
+</div>
+
+<% const qFechas = 'filtro=' + filtro + '&desde=' + desde + '&hasta=' + hasta; %>
+
+<div class="rep-grid">
+  <div class="card rep-card">
+    <div class="rep-ico">🧾</div>
+    <h2 class="sub">Ventas</h2>
+    <p class="muted">Todas las ventas cargadas, con vendedora, producto y medio de pago.</p>
+    <a class="primary-link" href="/admin/reportes/ventas.xlsx?<%= qFechas %>">Descargar Excel</a>
+  </div>
+  <div class="card rep-card">
+    <div class="rep-ico">💸</div>
+    <h2 class="sub">Gastos</h2>
+    <p class="muted">Todos los gastos, con categoría, responsable y medio de pago.</p>
+    <a class="primary-link" href="/admin/reportes/gastos.xlsx?<%= qFechas %>">Descargar Excel</a>
+  </div>
+  <div class="card rep-card">
+    <div class="rep-ico">💰</div>
+    <h2 class="sub">Caja</h2>
+    <p class="muted">Ventas y gastos juntos, ordenados por fecha — el resumen de plata que entró y salió.</p>
+    <a class="primary-link" href="/admin/reportes/caja.xlsx?<%= qFechas %>">Descargar Excel</a>
+  </div>
+  <div class="card rep-card">
+    <div class="rep-ico">📦</div>
+    <h2 class="sub">Stock</h2>
+    <p class="muted">El inventario tal como está ahora: cantidades, precios y costos.</p>
+    <a class="primary-link" href="/admin/reportes/stock.xlsx">Descargar Excel</a>
+  </div>
+  <div class="card rep-card">
+    <div class="rep-ico">✂️</div>
+    <h2 class="sub">Pedidos</h2>
+    <p class="muted">Todos los pedidos personalizados, con estado, seña y saldo pendiente.</p>
+    <a class="primary-link" href="/admin/reportes/pedidos.xlsx">Descargar Excel</a>
+  </div>
+  <div class="card rep-card">
+    <div class="rep-ico">📇</div>
+    <h2 class="sub">Agenda</h2>
+    <p class="muted">Todos los contactos guardados, con tipo, teléfono y notas.</p>
+    <a class="primary-link" href="/admin/reportes/contactos.xlsx">Descargar Excel</a>
+  </div>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

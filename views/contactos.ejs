@@ -1,0 +1,45 @@
+<%- include('partials/head') %>
+<h1 class="title">Nuevo contacto</h1>
+
+<div class="layout-2col">
+<div class="col-form">
+<div class="card">
+  <form method="post" action="/contactos">
+    <label for="c-tipo">Tipo</label>
+    <select id="c-tipo" name="tipo"><option>Clienta potencial</option><option>Proveedor</option></select>
+    <label for="c-nom">Nombre</label>
+    <div class="field-mic">
+      <input type="text" id="c-nom" name="nombre" placeholder="Nombre" required>
+      <button type="button" class="mic" onclick="dictar('c-nom', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <label for="c-tel">Teléfono</label>
+    <input type="tel" id="c-tel" name="telefono" placeholder="3834...">
+    <label for="c-notas">Notas</label>
+    <div class="field-mic">
+      <textarea id="c-notas" name="notas" placeholder="Qué le interesó, qué vende, etc."></textarea>
+      <button type="button" class="mic" onclick="dictar('c-notas', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <button class="primary" type="submit">Guardar contacto</button>
+  </form>
+</div>
+</div>
+
+<div class="col-list">
+<h2 class="sub">Agenda</h2>
+<% if (!contactos.length) { %>
+  <div class="empty">Todavía no hay contactos guardados.</div>
+<% } else { %><div class="list-grid"><% contactos.forEach(function(c){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/contactos/<%= c.id %>/borrar" data-confirm="¿Borrar a <%= c.nombre %>?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="badge-rol"><%= c.tipo %></div>
+    <div class="name" style="font-size:15px; margin-top:2px;"><%= c.nombre %></div>
+    <% if (c.telefono) { %><div style="font-size:13px; color:var(--primary); margin-top:2px;"><%= c.telefono %></div><% } %>
+    <% if (c.notas) { %><div class="muted" style="margin-top:4px;"><%= c.notas %></div><% } %>
+  </div>
+<% }); %></div><% } %>
+</div>
+</div>
+<%- include('partials/nav') %>
+<%- include('partials/foot') %>

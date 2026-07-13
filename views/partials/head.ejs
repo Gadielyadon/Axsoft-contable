@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0E5C55">
+  <link rel="manifest" href="/manifest.json">
+  <title><%= APP_NAME %></title>
+  <link rel="stylesheet" href="/css/styles.css?v=<%= ASSET_V %>">
+</head>
+<body>
+<div class="app">
+<% var isAdmin = (typeof activeAdmin !== 'undefined' && activeAdmin); %>
+<header class="topbar">
+  <div class="brand">
+    <div class="name"><span>Ax</span><b>Soft</b> <span class="contable">Contable</span></div>
+    <div class="ctx">
+      <% if (user && user.negocio_id) { %><%= (typeof negocioNombre !== 'undefined' && negocioNombre) ? negocioNombre : 'Mi negocio' %><% } else if (user && user.rol === 'superadmin') { %>Panel de plataforma<% } %>
+    </div>
+  </div>
+  <div class="right">
+    <% if (user) { %>
+      <% if (user.rol === 'dueno') { %>
+        <% if (isAdmin) { %>
+          <a class="btn-logout" href="/ventas">Operación</a>
+        <% } else { %>
+          <a class="btn-logout" href="/admin/caja">Panel</a>
+        <% } %>
+      <% } %>
+      <div class="who"><%= user.nombre %></div>
+      <form class="inline-form" method="post" action="/logout"><button class="btn-logout" type="submit">Salir</button></form>
+    <% } %>
+  </div>
+</header>
+<main>

@@ -1,0 +1,54 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Cuentas por pagar</h1>
+
+<div class="card">
+  <h2 class="sub">Nuevo pago pendiente</h2>
+  <form method="post" action="/admin/pagos">
+    <label for="pg-con">Proveedor / concepto</label>
+    <input type="text" id="pg-con" name="concepto" placeholder="Ej: proveedor de insumos" required>
+    <div class="row2">
+      <div><label for="pg-monto">Monto</label><input type="number" id="pg-monto" name="monto" inputmode="numeric" placeholder="0" required></div>
+      <div><label for="pg-venc">Vencimiento</label><input type="date" id="pg-venc" name="vencimiento"></div>
+    </div>
+    <label for="pg-prio">Prioridad</label>
+    <select id="pg-prio" name="prioridad"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select>
+    <button class="primary" type="submit">Agregar pago</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="bar"><span>Neto de caja (todos los días)</span><span class="v"><%= fmt(netoTotal) %></span></div>
+  <div class="bar"><span>Ya pagado</span><span class="v"><%= fmt(yaPagado) %></span></div>
+  <div class="bar"><span>Disponible para pagar</span><span class="v <%= disponible>=0 ? 'pos':'neg' %>"><%= fmt(disponible) %></span></div>
+</div>
+
+<h2 class="sub">Listado</h2>
+<% if (!pagos.length) { %>
+  <div class="empty">No hay pagos cargados.</div>
+<% } else { pagos.forEach(function(p){ %>
+  <div class="item <%= p.estado==='pagado' ? '' : '' %>">
+    <form class="inline-form" method="post" action="/admin/pagos/<%= p.id %>/borrar" data-confirm="¿Borrar este pago?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= p.concepto %></span>
+      <span class="amount <%= p.estado==='pagado' ? '' : 'neg' %>"><%= fmt(p.monto) %></span>
+    </div>
+    <div class="meta">
+      <% if (p.estado==='pagado') { %>
+        <span class="state pagado">Pagado</span>
+      <% } else { %>
+        <span class="state <%= p.prioridad %>"><%= p.prioridad %></span>
+        <% if (p.vencimiento) { %><span>Vence: <%= p.vencimiento %></span><% } %>
+      <% } %>
+    </div>
+    <% if (p.estado!=='pagado') { %>
+      <form class="inline-form" method="post" action="/admin/pagos/<%= p.id %>/pagar">
+        <button class="ghost" type="submit" style="margin-top:9px;">Marcar como pagado</button>
+      </form>
+    <% } %>
+  </div>
+<% }); } %>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

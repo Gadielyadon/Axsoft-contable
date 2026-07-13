@@ -1,0 +1,99 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Empleadas</h1>
+
+<% if (error) { %><div class="alert"><%= error %></div><% } %>
+<% if (ok == 1) { %><div class="alert ok">Empleada creada. Ya puede iniciar sesión.</div><% } %>
+<% if (ok == 2) { %><div class="alert ok">Permisos actualizados.</div><% } %>
+<% if (ok == 3) { %><div class="alert">El PIN tiene que ser de 4 números.</div><% } %>
+<% if (ok == 4) { %><div class="alert ok">PIN activado. Te lo pedirá la próxima vez que entres al Panel. Para probarlo ahora mismo, tocá "Bloquear ahora y probar".</div><% } %>
+<% if (ok == 5) { %><div class="alert ok">PIN quitado. El Panel ya no pide PIN.</div><% } %>
+
+<div class="card">
+  <h2 class="sub">Seguridad del Panel</h2>
+  <p class="muted" style="margin:0 0 14px;">Si cargás un PIN, cada vez que se entre a "Panel" (Caja, Pagos, Sueldos, Reportes) lo va a pedir — así nadie que agarre el celular puede verlo sin que vos quieras.</p>
+  <form method="post" action="/admin/pin/cambiar">
+    <div class="row2">
+      <div>
+        <label for="pin-nuevo"><%= pinActivo ? 'Cambiar PIN (4 números)' : 'Activar PIN (4 números)' %></label>
+        <input type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="pin-nuevo" name="pin" placeholder="Ej: 1234" required>
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button class="primary" type="submit" style="margin-top:0; width:100%;"><%= pinActivo ? 'Cambiar' : 'Activar' %></button>
+      </div>
+    </div>
+  </form>
+  <% if (pinActivo) { %>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <form method="post" action="/admin/pin/bloquear" style="flex:1;">
+        <button class="ghost" type="submit" style="width:100%;">Bloquear ahora y probar</button>
+      </form>
+      <form method="post" action="/admin/pin/quitar" style="flex:1;">
+        <button class="ghost" type="submit" style="width:100%;">Quitar PIN</button>
+      </form>
+    </div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2 class="sub">Dar de alta empleada</h2>
+  <% if (alcanzoLimite) { %>
+    <div class="hint">Ya tenés las <%= limite %> empleadas que incluye tu plan. Para dar de alta otra persona, desactivá alguna más abajo.</div>
+  <% } else { %>
+  <form method="post" action="/admin/empleados">
+    <label for="e-nom">Nombre</label>
+    <input type="text" id="e-nom" name="nombre" placeholder="Ej: Martina" required>
+    <div class="row2">
+      <div><label for="e-user">Usuario</label><input type="text" id="e-user" name="usuario" autocapitalize="none" autocomplete="off" placeholder="martina" required></div>
+      <div><label for="e-pass">Contraseña</label><input type="text" id="e-pass" name="password" autocomplete="off" placeholder="mín. 4" required></div>
+    </div>
+
+    <label>¿A qué secciones puede entrar?</label>
+    <div class="perm-grid">
+      <% SECCIONES.forEach(function(s){ %>
+        <label class="perm-chk">
+          <input type="checkbox" name="permisos" value="<%= s.key %>" checked>
+          <span><%= s.label %></span>
+        </label>
+      <% }); %>
+    </div>
+
+    <button class="primary" type="submit">Crear empleada</button>
+  </form>
+  <div class="hint">Cada empleada entra con su propio usuario y clave, y solo ve las secciones que le tildaste. La caja, los pagos, la producción y los sueldos son solo tuyos.</div>
+  <% } %>
+</div>
+
+<h2 class="sub">Usuarios del negocio (<%= usuarios.filter(function(u){return u.rol==='empleado';}).length %>/<%= limite %> empleadas)</h2>
+<% usuarios.forEach(function(u){ %>
+  <div class="item">
+    <div class="head">
+      <span class="name"><%= u.nombre %> <span class="badge-rol">· <%= u.rol==='dueno' ? 'Dueña' : 'Empleada' %></span></span>
+      <% if (u.rol==='empleado') { %>
+        <span class="state <%= u.activo ? 'listo':'pendiente' %>"><%= u.activo ? 'Activa':'Inactiva' %></span>
+      <% } %>
+    </div>
+    <div class="meta"><span>usuario: <b><%= u.usuario %></b></span></div>
+
+    <% if (u.rol==='empleado') { %>
+      <form method="post" action="/admin/empleados/<%= u.id %>/permisos" style="margin-top:11px;">
+        <div class="perm-grid">
+          <% SECCIONES.forEach(function(s){ %>
+            <label class="perm-chk">
+              <input type="checkbox" name="permisos" value="<%= s.key %>" <%= u.permisosArr.indexOf(s.key) !== -1 ? 'checked' : '' %>>
+              <span><%= s.label %></span>
+            </label>
+          <% }); %>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="ghost" type="submit">Guardar permisos</button>
+        </div>
+      </form>
+      <form class="inline-form" method="post" action="/admin/empleados/<%= u.id %>/toggle">
+        <button class="ghost" type="submit" style="margin-top:9px;"><%= u.activo ? 'Desactivar' : 'Reactivar' %></button>
+      </form>
+    <% } %>
+  </div>
+<% }); %>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

@@ -1,0 +1,51 @@
+<%- include('partials/head') %>
+<h1 class="title">Cargar / ajustar stock</h1>
+
+<div class="layout-2col">
+<div class="col-form">
+<div class="card">
+  <form method="post" action="/stock">
+    <label for="s-cat">Categoría</label>
+    <input type="text" id="s-cat" name="categoria" placeholder="Ej: Extensiones">
+    <label for="s-nom">Nombre / descripción</label>
+    <input type="text" id="s-nom" name="nombre" placeholder="Ej: Extensión rubio 60cm" required>
+    <div class="row2">
+      <div><label for="s-cant">Cantidad</label><input type="number" id="s-cant" name="cantidad" inputmode="numeric" placeholder="0"></div>
+      <div><label for="s-prec">Precio venta</label><input type="number" id="s-prec" name="precio" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <label for="s-costo">Costo aprox (opcional)</label>
+    <input type="number" id="s-costo" name="costo" inputmode="numeric" placeholder="0">
+    <button class="primary" type="submit">Agregar al stock</button>
+  </form>
+</div>
+</div>
+
+<div class="col-list">
+<h2 class="sub">Stock actual</h2>
+<% if (!stock.length) { %>
+  <div class="empty">Todavía no cargaste stock.</div>
+<% } else { %><div class="list-grid"><% stock.forEach(function(s){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/stock/<%= s.id %>/borrar" data-confirm="¿Borrar <%= s.nombre %>?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= s.nombre %></span>
+      <span class="qty"><%= s.cantidad %></span>
+    </div>
+    <div class="meta">
+      <% if (s.categoria) { %><span class="chip"><%= s.categoria %></span><% } %>
+      <span class="chip pay"><%= fmt(s.precio) %></span>
+      <% if (s.cantidad <= 2) { %><span class="chip low">stock bajo</span><% } %>
+    </div>
+    <div class="qty-btns">
+      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="-1"><button type="submit" style="width:100%;">-1</button></form>
+      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="1"><button type="submit" style="width:100%;">+1</button></form>
+      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="5"><button type="submit" style="width:100%;">+5</button></form>
+    </div>
+  </div>
+<% }); %></div><% } %>
+</div>
+</div>
+<%- include('partials/nav') %>
+<%- include('partials/foot') %>

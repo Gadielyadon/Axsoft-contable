@@ -1,0 +1,75 @@
+<%- include('partials/head') %>
+<h1 class="title">Registrar gasto</h1>
+
+<div class="layout-2col">
+<div class="col-form">
+<div class="card">
+  <form method="post" action="/gastos">
+    <label for="g-resp">Responsable</label>
+    <select id="g-resp" name="responsable">
+      <% empleados.forEach(function(e){ %><option><%= e.nombre %></option><% }); %>
+      <option>Otra</option>
+    </select>
+
+    <label for="g-cat">Categoría</label>
+    <select id="g-cat" name="categoria_sel" onchange="onCategoriaChange(this)">
+      <% categorias.forEach(function(c){ %><option value="<%= c %>"><%= c %></option><% }); %>
+      <option value="__nueva__">+ Nueva categoría…</option>
+    </select>
+    <input type="text" id="g-cat-nueva" name="categoria_nueva" placeholder="Nombre de la categoría nueva" style="display:none; margin-top:6px;">
+
+    <div class="row2">
+      <div><label for="g-monto">Monto</label><input type="number" id="g-monto" name="monto" inputmode="numeric" placeholder="0" required></div>
+      <div>
+        <label for="g-pago">Medio de pago</label>
+        <select id="g-pago" name="pago"><option>Efectivo</option><option>Transferencia</option><option>Débito</option><option>Crédito</option></select>
+      </div>
+    </div>
+    <label for="g-desc">Descripción</label>
+    <div class="field-mic">
+      <input type="text" id="g-desc" name="descripcion" placeholder="Ej: nafta, hielo, bolsas">
+      <button type="button" class="mic" onclick="dictar('g-desc', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <button class="primary" type="submit">Registrar gasto</button>
+  </form>
+</div>
+
+<% if (categorias.length) { %>
+<div class="card cats-card">
+  <h2 class="sub">Categorías</h2>
+  <div class="cats-wrap">
+    <% categorias.forEach(function(c){ %>
+      <form class="inline-form" method="post" action="/gastos/categorias/<%= encodeURIComponent(c) %>/borrar" data-confirm="¿Borrar la categoría &quot;<%= c %>&quot;? (solo se puede si no tiene gastos cargados)">
+        <button type="submit" class="cat-chip"><%= c %> <span>&times;</span></button>
+      </form>
+    <% }); %>
+  </div>
+  <div class="muted" style="margin-top:8px;">Para agregar una nueva, elegí "+ Nueva categoría…" arriba al cargar un gasto.</div>
+</div>
+<% } %>
+</div>
+
+<div class="col-list">
+<h2 class="sub">Últimos gastos</h2>
+<% if (!gastos.length) { %>
+  <div class="empty">Todavía no hay gastos cargados.</div>
+<% } else { %><div class="list-grid"><% gastos.forEach(function(g){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/gastos/<%= g.id %>/borrar" data-confirm="¿Borrar este gasto?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= g.categoria %><%= g.descripcion ? ' — ' + g.descripcion : '' %></span>
+      <span class="amount neg">-<%= fmt(g.monto) %></span>
+    </div>
+    <div class="meta">
+      <span class="chip"><%= g.responsable %></span>
+      <span class="chip pay"><%= g.pago %></span>
+      <span><%= fechaCorta(g.creado_en) %></span>
+    </div>
+  </div>
+<% }); %></div><% } %>
+</div>
+</div>
+<%- include('partials/nav') %>
+<%- include('partials/foot') %>

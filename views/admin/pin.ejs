@@ -1,0 +1,15 @@
+<%- include('../partials/head') %>
+<h1 class="title">Panel protegido</h1>
+
+<div class="card pin-card">
+  <p class="muted" style="margin:0 0 16px;">Este negocio tiene el Panel protegido con PIN. Ingresalo para entrar a Caja, Pagos, Sueldos y Reportes.</p>
+  <% if (error) { %><div class="alert"><%= error %></div><% } %>
+  <form method="post" action="/admin/pin">
+    <input type="hidden" name="next" value="<%= next %>">
+    <label for="pin-in">PIN</label>
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pin-in" name="pin" autofocus placeholder="••••" required>
+    <button class="primary" type="submit">Entrar</button>
+  </form>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

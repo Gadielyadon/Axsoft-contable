@@ -1,0 +1,85 @@
+<%- include('partials/head') %>
+<h1 class="title">Registrar venta</h1>
+
+<div class="layout-2col">
+<div class="col-form">
+<div class="card">
+  <form method="post" action="/ventas">
+    <label for="v-vendedor">Vendedor/a</label>
+    <select id="v-vendedor" name="vendedor">
+      <% empleados.forEach(function(e){ %><option><%= e.nombre %></option><% }); %>
+      <option>Otra</option>
+    </select>
+
+    <label for="v-producto">Producto</label>
+    <div class="field-mic">
+      <input type="text" id="v-producto" name="producto" placeholder="Ej: trenza, extensión, producto...">
+      <button type="button" class="mic" onclick="dictar('v-producto', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+
+    <% if (stock.length) { %>
+    <label for="v-stock">Descontar de stock (opcional)</label>
+    <select id="v-stock" name="stock_id" onchange="autocompletarPrecio(this)">
+      <option value="">— Sin vincular —</option>
+      <% stock.forEach(function(s){ %>
+        <option value="<%= s.id %>" data-precio="<%= s.precio %>"><%= s.nombre %> — quedan <%= s.cantidad %> — <%= fmt(s.precio) %></option>
+      <% }); %>
+    </select>
+    <% } %>
+
+    <label for="v-detalle">Detalle</label>
+    <div class="field-mic">
+      <input type="text" id="v-detalle" name="detalle" placeholder="Ej: fucsia, niña">
+      <button type="button" class="mic" onclick="dictar('v-detalle', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+
+    <div class="row2">
+      <div>
+        <label for="v-precio">Precio</label>
+        <input type="number" id="v-precio" name="precio" inputmode="numeric" placeholder="0" required>
+      </div>
+      <div>
+        <label for="v-pago">Medio de pago</label>
+        <select id="v-pago" name="pago">
+          <option>Efectivo</option><option>Transferencia</option><option>Débito</option>
+          <option>Crédito</option><option>QR / Mercado Pago</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="v-cliente">Clienta (opcional)</label>
+    <div class="field-mic">
+      <input type="text" id="v-cliente" name="cliente" placeholder="Nombre">
+      <button type="button" class="mic" onclick="dictar('v-cliente', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+
+    <button class="primary" type="submit">Registrar venta</button>
+  </form>
+</div>
+</div>
+
+<div class="col-list">
+<h2 class="sub">Últimas ventas</h2>
+<% if (!ventas.length) { %>
+  <div class="empty">Todavía no hay ventas cargadas.</div>
+<% } else { %><div class="list-grid"><% ventas.forEach(function(v){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/ventas/<%= v.id %>/borrar" data-confirm="¿Borrar esta venta?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= v.producto || 'Venta' %><%= v.detalle ? ' — ' + v.detalle : '' %></span>
+      <span class="amount pos"><%= fmt(v.precio) %></span>
+    </div>
+    <div class="meta">
+      <span class="chip"><%= v.vendedor %></span>
+      <span class="chip pay"><%= v.pago %></span>
+      <% if (v.cliente) { %><span><%= v.cliente %></span><% } %>
+      <span><%= fechaCorta(v.creado_en) %></span>
+    </div>
+  </div>
+<% }); %></div><% } %>
+</div>
+</div>
+<%- include('partials/nav') %>
+<%- include('partials/foot') %>

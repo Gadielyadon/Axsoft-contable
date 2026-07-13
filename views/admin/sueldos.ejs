@@ -1,0 +1,58 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Sueldos y rentabilidad</h1>
+
+<div class="card">
+  <h2 class="sub">Agregar integrante</h2>
+  <form method="post" action="/admin/sueldos">
+    <label for="eq-nom">Nombre</label>
+    <input type="text" id="eq-nom" name="nombre" placeholder="Nombre" required>
+    <label for="eq-rol">Rol</label>
+    <select id="eq-rol" name="rol">
+      <option>Producción / estilismo</option><option>Venta / atención</option>
+      <option>Marketing</option><option>Fundadora</option>
+    </select>
+    <div class="row2">
+      <div><label for="eq-tar">Tarifa por hora</label><input type="number" id="eq-tar" name="tarifa" inputmode="numeric" value="5100"></div>
+      <div><label for="eq-hor">Horas totales</label><input type="number" id="eq-hor" name="horas" inputmode="numeric" placeholder="Ej: 60"></div>
+    </div>
+    <label for="eq-com">Comisión sobre sus ventas (%, opcional)</label>
+    <input type="number" id="eq-com" name="comision" inputmode="numeric" value="0">
+    <button class="primary" type="submit">Agregar</button>
+  </form>
+</div>
+
+<h2 class="sub">Equipo cargado</h2>
+<% if (!filas.length) { %>
+  <div class="empty">Todavía no cargaste al equipo.</div>
+<% } else { filas.forEach(function(e){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/admin/sueldos/<%= e.id %>/borrar" data-confirm="¿Borrar a <%= e.nombre %>?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= e.nombre %></span>
+      <span class="amount"><%= fmt(e.total) %></span>
+    </div>
+    <div class="meta">
+      <% if (e.rol) { %><span class="chip"><%= e.rol %></span><% } %>
+      <span><%= e.horas %>h x <%= fmt(e.tarifa) %></span>
+      <% if (e.comision > 0) { %><span><%= e.comision %>% de <%= fmt(e.ventasP) %> = <%= fmt(e.comisionMonto) %></span><% } %>
+    </div>
+  </div>
+<% }); } %>
+
+<div class="stat-grid" style="margin-top:14px;">
+  <div class="stat wide"><div class="lbl">Costo total de sueldos estimado</div><div class="val neg"><%= fmt(totalSueldos) %></div></div>
+</div>
+
+<div class="card">
+  <h2 class="sub">Rentabilidad estimada del evento</h2>
+  <div class="bar"><span>Ingreso proyectado (producción)</span><span class="v"><%= fmt(ingreso) %></span></div>
+  <div class="bar"><span>Costo materiales</span><span class="v"><%= fmt(materiales) %></span></div>
+  <div class="bar"><span>Gastos operativos cargados</span><span class="v"><%= fmt(gastosOp) %></span></div>
+  <div class="bar"><span>Sueldos estimados</span><span class="v"><%= fmt(totalSueldos) %></span></div>
+  <div class="bar"><span>Ganancia neta estimada</span><span class="v <%= netoEvento>=0?'pos':'neg' %>"><%= fmt(netoEvento) %></span></div>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

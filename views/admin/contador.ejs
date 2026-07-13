@@ -1,0 +1,18 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<h1 class="title">Contador de visitantes</h1>
+
+<div class="card">
+  <p class="muted" style="margin:0 0 14px;">Tocá cada vez que alguien se detiene en el stand (no hace falta que compre). Sirve para el % real de conversión.</p>
+  <form method="post" action="/admin/contador/sumar">
+    <button class="primary" type="submit" style="margin-top:0; padding:30px 0; font-size:18px; border-radius:16px;">+ 1 visita</button>
+  </form>
+  <div style="margin-top:14px;">
+    <div class="bar"><span>Hoy</span><span class="v"><%= hoyCount %></span></div>
+    <div class="bar"><span>Total acumulado</span><span class="v"><%= total %></span></div>
+    <div class="bar"><span>Ventas de hoy</span><span class="v"><%= ventasHoy %></span></div>
+    <div class="bar"><span>Conversión real de hoy</span><span class="v"><%= conversion===null ? '—' : conversion + '%' %></span></div>
+  </div>
+</div>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

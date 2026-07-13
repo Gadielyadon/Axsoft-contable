@@ -1,0 +1,24 @@
+{
+  "name": "axsoft-contable",
+  "version": "1.0.0",
+  "description": "AxSoft Contable - gestion mobile-first multi-negocio (ventas, stock, gastos, pedidos, caja) para emprendedores.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "init-db": "node db/init.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "connect-sqlite3": "^0.9.15",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "xlsx": "^0.18.5"
+  }
+}

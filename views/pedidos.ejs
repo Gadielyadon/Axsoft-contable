@@ -1,0 +1,88 @@
+<%- include('partials/head') %>
+<% var labels = {pendiente:'Pendiente', proceso:'En proceso', listo:'Listo', entregado:'Entregado'}; %>
+<h1 class="title">Pedido personalizado</h1>
+
+<div class="layout-2col">
+<div class="col-form">
+<div class="card">
+  <form method="post" action="/pedidos">
+    <label for="p-cli">Clienta</label>
+    <div class="field-mic">
+      <input type="text" id="p-cli" name="cliente" placeholder="Nombre y apellido" required>
+      <button type="button" class="mic" onclick="dictar('p-cli', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <label for="p-tel">Teléfono</label>
+    <input type="tel" id="p-tel" name="telefono" placeholder="3834...">
+    <label for="p-tipo">Tipo de pieza</label>
+    <input type="text" id="p-tipo" name="tipo" placeholder="Ej: Topper, extensiones, peluca...">
+    <div class="row2">
+      <div><label for="p-tono">Tono / color</label><input type="text" id="p-tono" name="tono" placeholder="Ej: castaño 6"></div>
+      <div><label for="p-largo">Largo (cm)</label><input type="number" id="p-largo" name="largo" inputmode="numeric" placeholder="45"></div>
+    </div>
+    <label for="p-est">Estructura / tamaño</label>
+    <div class="field-mic">
+      <input type="text" id="p-est" name="estructura" placeholder="Ej: base mediana, ondulado">
+      <button type="button" class="mic" onclick="dictar('p-est', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <div class="row2">
+      <div><label for="p-fecha">Fecha de entrega</label><input type="date" id="p-fecha" name="entrega"></div>
+      <div>
+        <label for="p-estado">Estado</label>
+        <select id="p-estado" name="estado">
+          <option value="pendiente">Pendiente</option><option value="proceso">En proceso</option>
+          <option value="listo">Listo</option><option value="entregado">Entregado</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div><label for="p-sena">Seña</label><input type="number" id="p-sena" name="sena" inputmode="numeric" placeholder="0"></div>
+      <div><label for="p-total">Precio total</label><input type="number" id="p-total" name="total" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <label for="p-notas">Notas</label>
+    <div class="field-mic">
+      <textarea id="p-notas" name="notas" placeholder="Cualquier detalle extra"></textarea>
+      <button type="button" class="mic" onclick="dictar('p-notas', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+    </div>
+    <button class="primary" type="submit">Guardar pedido</button>
+  </form>
+</div>
+</div>
+
+<div class="col-list">
+<h2 class="sub">Pedidos activos</h2>
+<% if (!pedidos.length) { %>
+  <div class="empty">Todavía no hay pedidos cargados.</div>
+<% } else { %><div class="list-grid"><% pedidos.forEach(function(p){
+     var idx = ORDEN_ESTADOS.indexOf(p.estado);
+     var sig = (idx >= 0 && idx < ORDEN_ESTADOS.length - 1) ? ORDEN_ESTADOS[idx+1] : null; %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/pedidos/<%= p.id %>/borrar" data-confirm="¿Borrar el pedido de <%= p.cliente %>?">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= p.cliente %><%= p.tipo ? ' — ' + p.tipo : '' %></span>
+      <span class="state <%= p.estado %>"><%= labels[p.estado] %></span>
+    </div>
+    <div class="meta">
+      <% if (p.tono) { %><span>Tono: <%= p.tono %></span><% } %>
+      <% if (p.largo) { %><span>Largo: <%= p.largo %>cm</span><% } %>
+      <% if (p.estructura) { %><span><%= p.estructura %></span><% } %>
+      <% if (p.telefono) { %><span><%= p.telefono %></span><% } %>
+      <% if (p.entrega) { %><span>Entrega: <%= p.entrega %></span><% } %>
+    </div>
+    <div class="meta" style="margin-top:6px;">
+      <span>Seña: <%= fmt(p.sena) %></span>
+      <span>Total: <%= fmt(p.total) %></span>
+      <span>Resta: <%= fmt(Math.max(p.total - p.sena, 0)) %></span>
+    </div>
+    <% if (sig) { %>
+      <form class="inline-form" method="post" action="/pedidos/<%= p.id %>/avanzar">
+        <button class="ghost" type="submit" style="margin-top:9px;">Marcar como <%= labels[sig] %></button>
+      </form>
+    <% } %>
+  </div>
+<% }); %></div><% } %>
+</div>
+</div>
+<%- include('partials/nav') %>
+<%- include('partials/foot') %>
