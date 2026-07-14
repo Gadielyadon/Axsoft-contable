@@ -74,7 +74,7 @@ app.get('/', (req, res) => {
   if (!u) return res.redirect('/login');
   if (u.rol === 'superadmin') return res.redirect('/plataforma');
   if (u.rol === 'dueno') return res.redirect('/ventas');
-  const orden = ['ventas', 'stock', 'gastos', 'pedidos', 'contactos'];
+  const orden = ['ventas', 'stock', 'gastos', 'pedidos', 'contactos', 'contador'];
   const primera = orden.find(s => (u.permisos || []).includes(s));
   if (!primera) {
     return res.status(403).render('error', {

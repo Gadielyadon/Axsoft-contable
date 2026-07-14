@@ -8,7 +8,8 @@ const SECCIONES = [
   { key: 'stock',     label: 'Stock',    icon: '📦' },
   { key: 'gastos',    label: 'Gastos',   icon: '💸' },
   { key: 'pedidos',   label: 'Pedidos',  icon: '✂️' },
-  { key: 'contactos', label: 'Agenda',   icon: '📇' }
+  { key: 'contactos', label: 'Agenda',   icon: '📇' },
+  { key: 'contador',  label: 'Contador', icon: '👣' }
 ];
 const SECCION_KEYS = SECCIONES.map(s => s.key);
 

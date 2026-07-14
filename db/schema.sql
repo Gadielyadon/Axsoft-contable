@@ -177,3 +177,15 @@ CREATE INDEX IF NOT EXISTS idx_gastos_neg   ON gastos(negocio_id, creado_en);
 CREATE INDEX IF NOT EXISTS idx_stock_neg    ON stock(negocio_id);
 CREATE INDEX IF NOT EXISTS idx_pedidos_neg  ON pedidos(negocio_id);
 CREATE INDEX IF NOT EXISTS idx_usuarios_neg ON usuarios(negocio_id);
+-- Campos personalizados del formulario de Pedidos, por negocio.
+-- Cada negocio arma su propio formulario (trenzas, pastelería, ropa, etc.).
+CREATE TABLE IF NOT EXISTS pedido_campos (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  negocio_id INTEGER NOT NULL,
+  nombre     TEXT NOT NULL,
+  tipo       TEXT NOT NULL DEFAULT 'texto',   -- texto | numero | fecha
+  orden      INTEGER NOT NULL DEFAULT 0,
+  creado_en  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_pedidocampos_neg ON pedido_campos(negocio_id, orden);

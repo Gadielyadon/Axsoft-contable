@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0E5C55">
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
   <title><%= APP_NAME %></title>
   <link rel="stylesheet" href="/css/styles.css?v=<%= ASSET_V %>">
 </head>
@@ -27,7 +31,6 @@
           <a class="btn-logout" href="/admin/caja">Panel</a>
         <% } %>
       <% } %>
-      <div class="who"><%= user.nombre %></div>
       <form class="inline-form" method="post" action="/logout"><button class="btn-logout" type="submit">Salir</button></form>
     <% } %>
   </div>

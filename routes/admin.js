@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { db } = require('../db');
 const { requireLogin, requireRole, tenant, SECCIONES, SECCION_KEYS } = require('../middleware/auth');
 const { enviarXLSX } = require('../lib/xlsx');
+const { camposPedidoDe, TIPOS_CAMPO } = require('../lib/pedidos');
 const MAX_EMPLEADOS = 3;
 const router = express.Router();
 
@@ -242,26 +243,6 @@ router.post('/sueldos/:id/borrar', (req, res) => {
   res.redirect('/admin/sueldos');
 });
 
-/* ===================== CONTADOR DE VISITAS ===================== */
-router.get('/contador', (req, res) => {
-  const neg = req.negocioId;
-  const hoyRow = db.prepare("SELECT cantidad FROM visitas WHERE negocio_id = ? AND fecha = date('now','localtime')").get(neg);
-  const total = db.prepare('SELECT COALESCE(SUM(cantidad),0) t FROM visitas WHERE negocio_id = ?').get(neg).t;
-  const ventasHoy = db.prepare("SELECT COUNT(*) c FROM ventas WHERE negocio_id = ? AND date(creado_en) = date('now','localtime')").get(neg).c;
-  const hoyCount = hoyRow ? hoyRow.cantidad : 0;
-  res.render('admin/contador', {
-    activeAdmin: 'contador', hoyCount, total, ventasHoy,
-    conversion: hoyCount > 0 ? Math.round(ventasHoy / hoyCount * 100) : null
-  });
-});
-
-router.post('/contador/sumar', (req, res) => {
-  const neg = req.negocioId;
-  db.prepare(`INSERT INTO visitas (negocio_id, fecha, cantidad) VALUES (?, date('now','localtime'), 1)
-              ON CONFLICT(negocio_id, fecha) DO UPDATE SET cantidad = cantidad + 1`).run(neg);
-  res.redirect('/admin/contador');
-});
-
 /* ===================== EMPLEADAS ===================== */
 function listaUsuarios(negocioId) {
   return db.prepare("SELECT id, nombre, usuario, rol, activo, permisos FROM usuarios WHERE negocio_id = ? ORDER BY rol, nombre")
@@ -422,6 +403,47 @@ router.get('/reportes/contactos.xlsx', (req, res) => {
     ['Fecha', 'Tipo', 'Nombre', 'Teléfono', 'Notas'],
     filas.map(c => [c.creado_en, c.tipo, c.nombre, c.telefono, c.notas])
   );
+});
+
+/* ===================== AJUSTES · CAMPOS DE PEDIDO ===================== */
+router.get('/ajustes', (req, res) => {
+  const campos = camposPedidoDe(req.negocioId);
+  res.render('admin/ajustes', {
+    activeAdmin: 'ajustes', campos, tipos: TIPOS_CAMPO, ok: req.query.ok || null
+  });
+});
+
+router.post('/ajustes/campos', (req, res) => {
+  const nombre = (req.body.nombre || '').trim();
+  let tipo = (req.body.tipo || 'texto').trim();
+  if (!TIPOS_CAMPO.includes(tipo)) tipo = 'texto';
+  if (!nombre) return res.redirect('/admin/ajustes');
+  const maxOrden = db.prepare('SELECT COALESCE(MAX(orden),-1) m FROM pedido_campos WHERE negocio_id = ?').get(req.negocioId).m;
+  db.prepare('INSERT INTO pedido_campos (negocio_id, nombre, tipo, orden) VALUES (?,?,?,?)')
+    .run(req.negocioId, nombre, tipo, maxOrden + 1);
+  res.redirect('/admin/ajustes?ok=1');
+});
+
+router.post('/ajustes/campos/:id/borrar', (req, res) => {
+  db.prepare('DELETE FROM pedido_campos WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
+  res.redirect('/admin/ajustes');
+});
+
+// Mover un campo arriba/abajo (intercambia el orden con el vecino)
+router.post('/ajustes/campos/:id/mover', (req, res) => {
+  const dir = req.body.dir === 'arriba' ? 'arriba' : 'abajo';
+  const campos = db.prepare('SELECT id, orden FROM pedido_campos WHERE negocio_id = ? ORDER BY orden, id').all(req.negocioId);
+  const i = campos.findIndex(c => c.id === parseInt(req.params.id, 10));
+  if (i === -1) return res.redirect('/admin/ajustes');
+  const j = dir === 'arriba' ? i - 1 : i + 1;
+  if (j < 0 || j >= campos.length) return res.redirect('/admin/ajustes');
+  const a = campos[i], b = campos[j];
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE pedido_campos SET orden = ? WHERE id = ? AND negocio_id = ?').run(b.orden, a.id, req.negocioId);
+    db.prepare('UPDATE pedido_campos SET orden = ? WHERE id = ? AND negocio_id = ?').run(a.orden, b.id, req.negocioId);
+  });
+  tx();
+  res.redirect('/admin/ajustes');
 });
 
 module.exports = router;

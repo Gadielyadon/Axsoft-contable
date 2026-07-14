@@ -1,29 +1,34 @@
 <%- include('partials/head') %>
-<% var labels = {pendiente:'Pendiente', proceso:'En proceso', listo:'Listo', entregado:'Entregado'}; %>
-<h1 class="title">Pedido personalizado</h1>
+<% var labels = {pendiente:'Pendiente', proceso:'En proceso', listo:'Listo', entregado:'Entregado'};
+   var micSvg = '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg>'; %>
+<h1 class="title">Nuevo pedido</h1>
 
 <div class="layout-2col">
 <div class="col-form">
 <div class="card">
   <form method="post" action="/pedidos">
-    <label for="p-cli">Clienta</label>
+    <label for="p-cli">Cliente</label>
     <div class="field-mic">
       <input type="text" id="p-cli" name="cliente" placeholder="Nombre y apellido" required>
-      <button type="button" class="mic" onclick="dictar('p-cli', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+      <button type="button" class="mic" onclick="dictar('p-cli', this)"><%- micSvg %></button>
     </div>
     <label for="p-tel">Teléfono</label>
     <input type="tel" id="p-tel" name="telefono" placeholder="3834...">
-    <label for="p-tipo">Tipo de pieza</label>
-    <input type="text" id="p-tipo" name="tipo" placeholder="Ej: Topper, extensiones, peluca...">
-    <div class="row2">
-      <div><label for="p-tono">Tono / color</label><input type="text" id="p-tono" name="tono" placeholder="Ej: castaño 6"></div>
-      <div><label for="p-largo">Largo (cm)</label><input type="number" id="p-largo" name="largo" inputmode="numeric" placeholder="45"></div>
-    </div>
-    <label for="p-est">Estructura / tamaño</label>
-    <div class="field-mic">
-      <input type="text" id="p-est" name="estructura" placeholder="Ej: base mediana, ondulado">
-      <button type="button" class="mic" onclick="dictar('p-est', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
-    </div>
+
+    <% campos.forEach(function(c){ var fid = 'campo_' + c.id; %>
+      <label for="<%= fid %>"><%= c.nombre %></label>
+      <% if (c.tipo === 'numero') { %>
+        <input type="number" id="<%= fid %>" name="<%= fid %>" inputmode="numeric" placeholder="0">
+      <% } else if (c.tipo === 'fecha') { %>
+        <input type="date" id="<%= fid %>" name="<%= fid %>">
+      <% } else { %>
+        <div class="field-mic">
+          <input type="text" id="<%= fid %>" name="<%= fid %>" placeholder="<%= c.nombre %>">
+          <button type="button" class="mic" onclick="dictar('<%= fid %>', this)"><%- micSvg %></button>
+        </div>
+      <% } %>
+    <% }); %>
+
     <div class="row2">
       <div><label for="p-fecha">Fecha de entrega</label><input type="date" id="p-fecha" name="entrega"></div>
       <div>
@@ -41,10 +46,11 @@
     <label for="p-notas">Notas</label>
     <div class="field-mic">
       <textarea id="p-notas" name="notas" placeholder="Cualquier detalle extra"></textarea>
-      <button type="button" class="mic" onclick="dictar('p-notas', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+      <button type="button" class="mic" onclick="dictar('p-notas', this)"><%- micSvg %></button>
     </div>
     <button class="primary" type="submit">Guardar pedido</button>
   </form>
+  <div class="hint" style="margin-top:12px;">¿Querés cambiar los campos de este formulario? La dueña los edita desde <b>Panel &rarr; Ajustes</b>.</div>
 </div>
 </div>
 
@@ -60,13 +66,11 @@
       <button class="del" type="submit">&times;</button>
     </form>
     <div class="head">
-      <span class="name"><%= p.cliente %><%= p.tipo ? ' — ' + p.tipo : '' %></span>
+      <span class="name"><%= p.cliente %></span>
       <span class="state <%= p.estado %>"><%= labels[p.estado] %></span>
     </div>
     <div class="meta">
-      <% if (p.tono) { %><span>Tono: <%= p.tono %></span><% } %>
-      <% if (p.largo) { %><span>Largo: <%= p.largo %>cm</span><% } %>
-      <% if (p.estructura) { %><span><%= p.estructura %></span><% } %>
+      <% p.datosArr.forEach(function(d){ %><span><%= d.n %>: <%= d.v %></span><% }); %>
       <% if (p.telefono) { %><span><%= p.telefono %></span><% } %>
       <% if (p.entrega) { %><span>Entrega: <%= p.entrega %></span><% } %>
     </div>
@@ -75,6 +79,7 @@
       <span>Total: <%= fmt(p.total) %></span>
       <span>Resta: <%= fmt(Math.max(p.total - p.sena, 0)) %></span>
     </div>
+    <% if (p.notas) { %><div class="muted" style="margin-top:5px;"><%= p.notas %></div><% } %>
     <% if (sig) { %>
       <form class="inline-form" method="post" action="/pedidos/<%= p.id %>/avanzar">
         <button class="ghost" type="submit" style="margin-top:9px;">Marcar como <%= labels[sig] %></button>

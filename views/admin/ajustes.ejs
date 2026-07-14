@@ -1,0 +1,49 @@
+<%- include('../partials/head') %>
+<%- include('../partials/subnav-admin') %>
+<% var tipoLabel = { texto:'Texto', numero:'Número', fecha:'Fecha' }; %>
+<h1 class="title">Ajustes</h1>
+
+<% if (ok) { %><div class="alert ok">Campo agregado. Ya aparece en el formulario de Pedidos.</div><% } %>
+
+<div class="card">
+  <h2 class="sub">Campos del formulario de Pedidos</h2>
+  <p class="muted" style="margin:0 0 12px;">Armá el formulario de pedidos a la medida de tu negocio. Los campos fijos (cliente, teléfono, fecha de entrega, estado, seña, total y notas) están siempre. Acá agregás los tuyos: por ejemplo <i>Tono, Largo</i> para extensiones, o <i>Sabor, Porciones</i> para pastelería.</p>
+  <form method="post" action="/admin/ajustes/campos">
+    <label for="c-nom">Nombre del campo</label>
+    <input type="text" id="c-nom" name="nombre" placeholder="Ej: Color, Talle, Sabor..." required>
+    <label for="c-tipo">Tipo</label>
+    <select id="c-tipo" name="tipo">
+      <% tipos.forEach(function(t){ %><option value="<%= t %>"><%= tipoLabel[t] %></option><% }); %>
+    </select>
+    <button class="primary" type="submit">Agregar campo</button>
+  </form>
+</div>
+
+<h2 class="sub">Campos actuales</h2>
+<% if (!campos.length) { %>
+  <div class="empty">No hay campos personalizados. Agregá el primero arriba.</div>
+<% } else { campos.forEach(function(c, i){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/admin/ajustes/campos/<%= c.id %>/borrar" data-confirm="¿Borrar el campo &quot;<%= c.nombre %>&quot;? Los pedidos ya cargados conservan su información.">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= c.nombre %></span>
+      <span class="chip"><%= tipoLabel[c.tipo] || c.tipo %></span>
+    </div>
+    <div class="qty-btns" style="margin-top:9px;">
+      <% if (i > 0) { %>
+        <form class="inline-form" method="post" action="/admin/ajustes/campos/<%= c.id %>/mover" style="flex:1;">
+          <input type="hidden" name="dir" value="arriba"><button type="submit" style="width:100%;">↑ Subir</button>
+        </form>
+      <% } %>
+      <% if (i < campos.length - 1) { %>
+        <form class="inline-form" method="post" action="/admin/ajustes/campos/<%= c.id %>/mover" style="flex:1;">
+          <input type="hidden" name="dir" value="abajo"><button type="submit" style="width:100%;">↓ Bajar</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+<% }); } %>
+<%- include('../partials/nav') %>
+<%- include('../partials/foot') %>

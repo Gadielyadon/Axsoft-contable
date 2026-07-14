@@ -25,6 +25,12 @@ function migrar() {
   if (!columnasConfig.includes('pin_panel')) {
     db.exec("ALTER TABLE config ADD COLUMN pin_panel TEXT");
   }
+
+  // Pedidos: columna 'datos' (JSON) para los campos personalizados del formulario.
+  const columnasPedidos = db.prepare("PRAGMA table_info(pedidos)").all().map(c => c.name);
+  if (!columnasPedidos.includes('datos')) {
+    db.exec("ALTER TABLE pedidos ADD COLUMN datos TEXT");
+  }
 }
 
 module.exports = { db, migrar, DB_PATH };

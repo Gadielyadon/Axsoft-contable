@@ -14,6 +14,7 @@ router.use('/stock', requireSection('stock'));
 router.use('/gastos', requireSection('gastos'));
 router.use('/pedidos', requireSection('pedidos'));
 router.use('/contactos', requireSection('contactos'));
+router.use('/contador', requireSection('contador'));
 
 const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
@@ -153,21 +154,34 @@ router.post('/gastos/:id/borrar', (req, res) => {
 
 /* ===================== PEDIDOS ===================== */
 const ORDEN_ESTADOS = ['pendiente', 'proceso', 'listo', 'entregado'];
+const { camposPedidoDe, datosDePedido } = require('../lib/pedidos');
 
 router.get('/pedidos', (req, res) => {
-  const pedidos = db.prepare('SELECT * FROM pedidos WHERE negocio_id = ? ORDER BY id DESC').all(req.negocioId);
-  res.render('pedidos', { activeNav: 'pedidos', pedidos, ORDEN_ESTADOS });
+  const campos = camposPedidoDe(req.negocioId);
+  const pedidos = db.prepare('SELECT * FROM pedidos WHERE negocio_id = ? ORDER BY id DESC').all(req.negocioId)
+    .map(p => ({ ...p, datosArr: datosDePedido(p) }));
+  res.render('pedidos', { activeNav: 'pedidos', pedidos, ORDEN_ESTADOS, campos });
 });
 
 router.post('/pedidos', (req, res) => {
   const cliente = (req.body.cliente || '').trim();
   if (!cliente) return res.redirect('/pedidos');
-  db.prepare(`INSERT INTO pedidos (negocio_id, cliente, telefono, tipo, tono, largo, estructura, entrega, estado, sena, total, notas)
-              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-    req.negocioId, cliente, req.body.telefono || '', req.body.tipo || '',
-    req.body.tono || '', req.body.largo || '', req.body.estructura || '',
+
+  // Armar los valores de los campos personalizados (guardamos nombre + valor,
+  // así el pedido conserva su info aunque después se renombre o borre un campo).
+  const campos = camposPedidoDe(req.negocioId);
+  const datos = [];
+  campos.forEach(c => {
+    const v = (req.body['campo_' + c.id] || '').toString().trim();
+    if (v) datos.push({ n: c.nombre, v });
+  });
+
+  db.prepare(`INSERT INTO pedidos (negocio_id, cliente, telefono, entrega, estado, sena, total, notas, datos)
+              VALUES (?,?,?,?,?,?,?,?,?)`).run(
+    req.negocioId, cliente, req.body.telefono || '',
     req.body.entrega || '', req.body.estado || 'pendiente',
-    num(req.body.sena), num(req.body.total), req.body.notas || ''
+    num(req.body.sena), num(req.body.total), req.body.notas || '',
+    JSON.stringify(datos)
   );
   res.redirect('/pedidos');
 });
@@ -206,6 +220,26 @@ router.post('/contactos', (req, res) => {
 router.post('/contactos/:id/borrar', (req, res) => {
   db.prepare('DELETE FROM contactos WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
   res.redirect('/contactos');
+});
+
+/* ===================== CONTADOR DE VISITAS ===================== */
+router.get('/contador', (req, res) => {
+  const neg = req.negocioId;
+  const hoyRow = db.prepare("SELECT cantidad FROM visitas WHERE negocio_id = ? AND fecha = date('now','localtime')").get(neg);
+  const total = db.prepare('SELECT COALESCE(SUM(cantidad),0) t FROM visitas WHERE negocio_id = ?').get(neg).t;
+  const ventasHoy = db.prepare("SELECT COUNT(*) c FROM ventas WHERE negocio_id = ? AND date(creado_en) = date('now','localtime')").get(neg).c;
+  const hoyCount = hoyRow ? hoyRow.cantidad : 0;
+  res.render('contador', {
+    activeNav: 'contador', hoyCount, total, ventasHoy,
+    conversion: hoyCount > 0 ? Math.round(ventasHoy / hoyCount * 100) : null
+  });
+});
+
+router.post('/contador/sumar', (req, res) => {
+  const neg = req.negocioId;
+  db.prepare(`INSERT INTO visitas (negocio_id, fecha, cantidad) VALUES (?, date('now','localtime'), 1)
+              ON CONFLICT(negocio_id, fecha) DO UPDATE SET cantidad = cantidad + 1`).run(neg);
+  res.redirect('/contador');
 });
 
 module.exports = router;
