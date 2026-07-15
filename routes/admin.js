@@ -5,7 +5,6 @@ const { db } = require('../db');
 const { requireLogin, requireRole, tenant, SECCIONES, SECCION_KEYS } = require('../middleware/auth');
 const { enviarXLSX } = require('../lib/xlsx');
 const { camposPedidoDe, TIPOS_CAMPO } = require('../lib/pedidos');
-const MAX_EMPLEADOS = 3;
 const router = express.Router();
 
 function configDe(negocioId) {
@@ -198,43 +197,109 @@ router.post('/produccion/:id/borrar', (req, res) => {
   res.redirect('/admin/produccion');
 });
 
-/* ===================== SUELDOS / EQUIPO / RENTABILIDAD ===================== */
+/* ===================== SUELDOS / EQUIPO / JORNADAS / RENTABILIDAD ===================== */
+
+// --- helpers de fechas (para los filtros Hoy / Semana / Mes) ---
+function isoDe(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function hoyISO() { return isoDe(new Date()); }
+function lunesISO() {
+  const d = new Date();
+  const dow = (d.getDay() + 6) % 7; // 0 = lunes
+  d.setDate(d.getDate() - dow);
+  return isoDe(d);
+}
+function primeroDeMesISO() {
+  const d = new Date();
+  d.setDate(1);
+  return isoDe(d);
+}
+
+// Resuelve el rango de fechas segun el filtro elegido
+function resolverRango(q) {
+  const r = q.r || 'todo';
+  if (r === 'hoy')    return { r, desde: hoyISO(),         hasta: hoyISO() };
+  if (r === 'semana') return { r, desde: lunesISO(),       hasta: hoyISO() };
+  if (r === 'mes')    return { r, desde: primeroDeMesISO(), hasta: hoyISO() };
+  if (r === 'rango')  return { r, desde: (q.desde || ''),  hasta: (q.hasta || '') };
+  return { r: 'todo', desde: '', hasta: '' };
+}
+
+// Horas entre dos horarios "HH:MM". Si cruza la medianoche, suma 24hs.
+function horasEntre(desde, hasta) {
+  const m = /^(\d{1,2}):(\d{2})$/;
+  const a = m.exec(desde || ''), b = m.exec(hasta || '');
+  if (!a || !b) return 0;
+  let min = (parseInt(b[1], 10) * 60 + parseInt(b[2], 10)) - (parseInt(a[1], 10) * 60 + parseInt(a[2], 10));
+  if (min < 0) min += 24 * 60;       // turno que cruza la medianoche
+  return Math.round((min / 60) * 100) / 100;
+}
+
 router.get('/sueldos', (req, res) => {
   const neg = req.negocioId;
-  const equipo = db.prepare('SELECT * FROM equipo WHERE negocio_id = ? ORDER BY id DESC').all(neg);
+  const rango = resolverRango(req.query);
 
-  // ventas por nombre para calcular comisiones
+  const equipo = db.prepare('SELECT * FROM equipo WHERE negocio_id = ? ORDER BY nombre COLLATE NOCASE').all(neg);
+
+  // --- jornadas del periodo ---
+  let sqlJ = 'SELECT j.*, e.nombre AS persona FROM jornadas j JOIN equipo e ON e.id = j.equipo_id WHERE j.negocio_id = ?';
+  const parJ = [neg];
+  if (rango.desde) { sqlJ += ' AND j.fecha >= ?'; parJ.push(rango.desde); }
+  if (rango.hasta) { sqlJ += ' AND j.fecha <= ?'; parJ.push(rango.hasta); }
+  sqlJ += ' ORDER BY j.fecha DESC, j.id DESC';
+  const jornadas = db.prepare(sqlJ).all(...parJ);
+
+  const horasPorEquipo = {};
+  jornadas.forEach(j => { horasPorEquipo[j.equipo_id] = (horasPorEquipo[j.equipo_id] || 0) + j.horas; });
+
+  // --- ventas del periodo, por vendedor (para la comision) ---
+  let sqlV = 'SELECT vendedor, SUM(precio) t FROM ventas WHERE negocio_id = ?';
+  const parV = [neg];
+  if (rango.desde) { sqlV += " AND date(creado_en) >= ?"; parV.push(rango.desde); }
+  if (rango.hasta) { sqlV += " AND date(creado_en) <= ?"; parV.push(rango.hasta); }
+  sqlV += ' GROUP BY vendedor';
   const ventasPorNombre = {};
-  db.prepare('SELECT vendedor, SUM(precio) t FROM ventas WHERE negocio_id = ? GROUP BY vendedor').all(neg)
-    .forEach(r => { ventasPorNombre[r.vendedor || '—'] = r.t; });
+  db.prepare(sqlV).all(...parV).forEach(r => { ventasPorNombre[r.vendedor || '-'] = r.t; });
 
-  let totalSueldos = 0;
+  let totalSueldos = 0, totalHoras = 0;
   const filas = equipo.map(e => {
-    const base = e.tarifa * e.horas;
+    const horas = Math.round((horasPorEquipo[e.id] || 0) * 100) / 100;
+    const base = horas * e.tarifa;
     const ventasP = ventasPorNombre[e.nombre] || 0;
     const comisionMonto = ventasP * (e.comision / 100);
     const total = base + comisionMonto;
     totalSueldos += total;
-    return { ...e, base, ventasP, comisionMonto, total };
+    totalHoras += horas;
+    return { ...e, horasPeriodo: horas, base, ventasP, comisionMonto, total };
   });
 
-  const produccion = db.prepare('SELECT * FROM produccion WHERE negocio_id = ?').all(neg);
-  const ingreso = produccion.reduce((s, p) => s + p.cantidad * p.precio, 0);
-  const materiales = produccion.reduce((s, p) => s + p.cantidad * p.costo, 0);
-  const gastosOp = db.prepare('SELECT COALESCE(SUM(monto),0) t FROM gastos WHERE negocio_id = ?').get(neg).t;
-  const netoEvento = ingreso - materiales - gastosOp - totalSueldos;
+  // --- rentabilidad del mismo periodo ---
+  let sqlG = 'SELECT COALESCE(SUM(monto),0) t FROM gastos WHERE negocio_id = ?';
+  const parG = [neg];
+  if (rango.desde) { sqlG += " AND date(creado_en) >= ?"; parG.push(rango.desde); }
+  if (rango.hasta) { sqlG += " AND date(creado_en) <= ?"; parG.push(rango.hasta); }
+  const gastosOp = db.prepare(sqlG).get(...parG).t;
+
+  let sqlVT = 'SELECT COALESCE(SUM(precio),0) t FROM ventas WHERE negocio_id = ?';
+  const parVT = [neg];
+  if (rango.desde) { sqlVT += " AND date(creado_en) >= ?"; parVT.push(rango.desde); }
+  if (rango.hasta) { sqlVT += " AND date(creado_en) <= ?"; parVT.push(rango.hasta); }
+  const ventasTotal = db.prepare(sqlVT).get(...parVT).t;
 
   res.render('admin/sueldos', {
-    activeAdmin: 'sueldos', filas, totalSueldos,
-    ingreso, materiales, gastosOp, netoEvento
+    activeAdmin: 'sueldos', filas, jornadas, totalSueldos, totalHoras,
+    ventasTotal, gastosOp, neto: ventasTotal - gastosOp - totalSueldos,
+    rango, hoy: hoyISO()
   });
 });
 
+// Alta de integrante (sin horas: las horas salen de las jornadas)
 router.post('/sueldos', (req, res) => {
   const nombre = (req.body.nombre || '').trim();
   if (!nombre) return res.redirect('/admin/sueldos');
-  db.prepare('INSERT INTO equipo (negocio_id, nombre, rol, tarifa, horas, comision) VALUES (?,?,?,?,?,?)')
-    .run(req.negocioId, nombre, req.body.rol || '', num(req.body.tarifa), num(req.body.horas), num(req.body.comision));
+  db.prepare('INSERT INTO equipo (negocio_id, nombre, rol, tarifa, horas, comision) VALUES (?,?,?,?,0,?)')
+    .run(req.negocioId, nombre, req.body.rol || '', num(req.body.tarifa), num(req.body.comision));
   res.redirect('/admin/sueldos');
 });
 
@@ -243,15 +308,44 @@ router.post('/sueldos/:id/borrar', (req, res) => {
   res.redirect('/admin/sueldos');
 });
 
+// Cargar una jornada. Se puede por horario (entrada/salida) o por horas directas.
+router.post('/sueldos/jornadas', (req, res) => {
+  const equipoId = parseInt(req.body.equipo_id, 10);
+  const fecha = (req.body.fecha || '').trim() || hoyISO();
+  const volver = req.body.volver || '/admin/sueldos';
+  if (!equipoId) return res.redirect(volver);
+
+  // el integrante tiene que ser de este negocio
+  const e = db.prepare('SELECT id FROM equipo WHERE id = ? AND negocio_id = ?').get(equipoId, req.negocioId);
+  if (!e) return res.redirect(volver);
+
+  let horas = 0, hd = null, hh = null;
+  if (req.body.modo === 'horas') {
+    horas = num(req.body.horas);
+  } else {
+    hd = (req.body.hora_desde || '').trim();
+    hh = (req.body.hora_hasta || '').trim();
+    horas = horasEntre(hd, hh);
+  }
+  if (horas <= 0) return res.redirect(volver);
+
+  db.prepare('INSERT INTO jornadas (negocio_id, equipo_id, fecha, hora_desde, hora_hasta, horas, nota) VALUES (?,?,?,?,?,?,?)')
+    .run(req.negocioId, equipoId, fecha, hd, hh, horas, (req.body.nota || '').trim());
+  res.redirect(volver);
+});
+
+router.post('/sueldos/jornadas/:id/borrar', (req, res) => {
+  db.prepare('DELETE FROM jornadas WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
+  res.redirect(req.body.volver || '/admin/sueldos');
+});
+
 /* ===================== EMPLEADAS ===================== */
 function listaUsuarios(negocioId) {
   return db.prepare("SELECT id, nombre, usuario, rol, activo, permisos FROM usuarios WHERE negocio_id = ? ORDER BY rol, nombre")
     .all(negocioId)
     .map(u => ({ ...u, permisosArr: (u.permisos || '').split(',').map(s => s.trim()).filter(Boolean) }));
 }
-function contarEmpleados(negocioId) {
-  return db.prepare("SELECT COUNT(*) c FROM usuarios WHERE negocio_id = ? AND rol = 'empleado'").get(negocioId).c;
-}
+
 function permisosDeBody(body) {
   let elegidos = body.permisos;
   if (!elegidos) elegidos = [];
@@ -264,7 +358,7 @@ router.get('/empleados', (req, res) => {
   const usuarios = listaUsuarios(req.negocioId);
   res.render('admin/empleados', {
     activeAdmin: 'empleados', usuarios, error: null, ok: req.query.ok || null,
-    SECCIONES, limite: MAX_EMPLEADOS, alcanzoLimite: contarEmpleados(req.negocioId) >= MAX_EMPLEADOS,
+    SECCIONES,
     pinActivo: !!configDe(req.negocioId).pin_panel
   });
 });
@@ -276,13 +370,10 @@ router.post('/empleados', (req, res) => {
 
   const rerender = (error) => res.render('admin/empleados', {
     activeAdmin: 'empleados', usuarios: listaUsuarios(req.negocioId), error, ok: null,
-    SECCIONES, limite: MAX_EMPLEADOS, alcanzoLimite: contarEmpleados(req.negocioId) >= MAX_EMPLEADOS,
+    SECCIONES,
     pinActivo: !!configDe(req.negocioId).pin_panel
   });
 
-  if (contarEmpleados(req.negocioId) >= MAX_EMPLEADOS) {
-    return rerender(`Ya tenés las ${MAX_EMPLEADOS} empleadas que incluye tu plan. Desactivá alguna si querés dar de alta otra persona.`);
-  }
   if (!nombre || !usuario || pass.length < 4) {
     return rerender('Completá nombre, usuario y una clave de 4+ caracteres.');
   }

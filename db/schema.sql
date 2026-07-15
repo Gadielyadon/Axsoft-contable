@@ -189,3 +189,21 @@ CREATE TABLE IF NOT EXISTS pedido_campos (
   FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_pedidocampos_neg ON pedido_campos(negocio_id, orden);
+
+-- Jornadas trabajadas por cada integrante del equipo.
+-- Se puede cargar por horario (entrada/salida) o por horas directas.
+-- El sueldo se calcula: horas del período x tarifa + comisión sobre ventas del período.
+CREATE TABLE IF NOT EXISTS jornadas (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  negocio_id INTEGER NOT NULL,
+  equipo_id  INTEGER NOT NULL,
+  fecha      TEXT NOT NULL,
+  hora_desde TEXT,
+  hora_hasta TEXT,
+  horas      REAL NOT NULL DEFAULT 0,
+  nota       TEXT,
+  creado_en  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE,
+  FOREIGN KEY (equipo_id)  REFERENCES equipo(id)   ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_jornadas_neg ON jornadas(negocio_id, fecha);

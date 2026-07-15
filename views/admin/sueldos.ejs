@@ -1,33 +1,83 @@
 <%- include('../partials/head') %>
 <%- include('../partials/subnav-admin') %>
-<h1 class="title">Sueldos y rentabilidad</h1>
+<%
+  var qs = (rango.r === 'rango')
+    ? '?r=rango&desde=' + encodeURIComponent(rango.desde) + '&hasta=' + encodeURIComponent(rango.hasta)
+    : '?r=' + rango.r;
+  var volver = '/admin/sueldos' + qs;
+  var etiquetas = { hoy:'Hoy', semana:'Esta semana', mes:'Este mes', todo:'Todo', rango:'Período elegido' };
+  var hs = function(n){ return (Math.round(n*100)/100).toString().replace('.', ',') + ' hs'; };
+%>
+<h1 class="title">Sueldos</h1>
 
-<div class="card">
-  <h2 class="sub">Agregar integrante</h2>
-  <form method="post" action="/admin/sueldos">
-    <label for="eq-nom">Nombre</label>
-    <input type="text" id="eq-nom" name="nombre" placeholder="Nombre" required>
-    <label for="eq-rol">Rol</label>
-    <select id="eq-rol" name="rol">
-      <option>Producción / estilismo</option><option>Venta / atención</option>
-      <option>Marketing</option><option>Fundadora</option>
-    </select>
+<div class="card" style="padding:12px 14px;">
+  <div class="subnav" style="margin-bottom:0;">
+    <a href="/admin/sueldos?r=hoy"    class="<%= rango.r==='hoy'    ? 'active':'' %>">Hoy</a>
+    <a href="/admin/sueldos?r=semana" class="<%= rango.r==='semana' ? 'active':'' %>">Esta semana</a>
+    <a href="/admin/sueldos?r=mes"    class="<%= rango.r==='mes'    ? 'active':'' %>">Este mes</a>
+    <a href="/admin/sueldos?r=todo"   class="<%= rango.r==='todo'   ? 'active':'' %>">Todo</a>
+  </div>
+  <form method="get" action="/admin/sueldos" style="margin-top:10px;">
+    <input type="hidden" name="r" value="rango">
     <div class="row2">
-      <div><label for="eq-tar">Tarifa por hora</label><input type="number" id="eq-tar" name="tarifa" inputmode="numeric" value="5100"></div>
-      <div><label for="eq-hor">Horas totales</label><input type="number" id="eq-hor" name="horas" inputmode="numeric" placeholder="Ej: 60"></div>
+      <div><label for="f-desde">Desde</label><input type="date" id="f-desde" name="desde" value="<%= rango.desde %>"></div>
+      <div><label for="f-hasta">Hasta</label><input type="date" id="f-hasta" name="hasta" value="<%= rango.hasta %>"></div>
     </div>
-    <label for="eq-com">Comisión sobre sus ventas (%, opcional)</label>
-    <input type="number" id="eq-com" name="comision" inputmode="numeric" value="0">
-    <button class="primary" type="submit">Agregar</button>
+    <button class="ghost" type="submit" style="width:100%; margin-top:10px;">Ver este período</button>
   </form>
 </div>
 
-<h2 class="sub">Equipo cargado</h2>
+<div class="stat-grid">
+  <div class="stat"><div class="lbl">Horas del período</div><div class="val"><%= hs(totalHoras) %></div></div>
+  <div class="stat"><div class="lbl">Sueldos a pagar</div><div class="val neg"><%= fmt(totalSueldos) %></div></div>
+</div>
+<p class="muted" style="margin:-6px 0 14px;">Mostrando: <b><%= etiquetas[rango.r] %></b><% if (rango.desde) { %> · <%= rango.desde %> a <%= rango.hasta %><% } %></p>
+
+<div class="card">
+  <h2 class="sub">Cargar jornada trabajada</h2>
+  <% if (!filas.length) { %>
+    <p class="muted" style="margin:0;">Primero agregá al menos un integrante del equipo, más abajo.</p>
+  <% } else { %>
+  <form method="post" action="/admin/sueldos/jornadas">
+    <input type="hidden" name="volver" value="<%= volver %>">
+    <label for="j-eq">Integrante</label>
+    <select id="j-eq" name="equipo_id" required>
+      <% filas.forEach(function(e){ %><option value="<%= e.id %>"><%= e.nombre %></option><% }); %>
+    </select>
+    <div class="row2">
+      <div><label for="j-fecha">Fecha</label><input type="date" id="j-fecha" name="fecha" value="<%= hoy %>" required></div>
+      <div>
+        <label for="j-modo">Cómo la cargás</label>
+        <select id="j-modo" name="modo" onchange="modoJornada(this.value)">
+          <option value="horario">Por horario (entrada y salida)</option>
+          <option value="horas">Por horas directas</option>
+        </select>
+      </div>
+    </div>
+    <div id="bloque-horario">
+      <div class="row2">
+        <div><label for="j-hd">Entrada</label><input type="time" id="j-hd" name="hora_desde" value="09:00"></div>
+        <div><label for="j-hh">Salida</label><input type="time" id="j-hh" name="hora_hasta" value="17:00"></div>
+      </div>
+      <div class="hint" style="margin-top:8px;">El sistema calcula las horas solo. Si el turno cruza la medianoche (ej: 20:00 a 02:00), también lo resuelve.</div>
+    </div>
+    <div id="bloque-horas" style="display:none;">
+      <label for="j-horas">Horas trabajadas</label>
+      <input type="number" id="j-horas" name="horas" step="0.25" inputmode="decimal" placeholder="Ej: 8">
+    </div>
+    <label for="j-nota">Nota (opcional)</label>
+    <input type="text" id="j-nota" name="nota" placeholder="Ej: día de feria">
+    <button class="primary" type="submit">Guardar jornada</button>
+  </form>
+  <% } %>
+</div>
+
+<h2 class="sub">Equipo y sueldo del período</h2>
 <% if (!filas.length) { %>
   <div class="empty">Todavía no cargaste al equipo.</div>
 <% } else { filas.forEach(function(e){ %>
   <div class="item">
-    <form class="inline-form" method="post" action="/admin/sueldos/<%= e.id %>/borrar" data-confirm="¿Borrar a <%= e.nombre %>?">
+    <form class="inline-form" method="post" action="/admin/sueldos/<%= e.id %>/borrar" data-confirm="¿Borrar a <%= e.nombre %>? También se borran sus jornadas.">
       <button class="del" type="submit">&times;</button>
     </form>
     <div class="head">
@@ -36,23 +86,62 @@
     </div>
     <div class="meta">
       <% if (e.rol) { %><span class="chip"><%= e.rol %></span><% } %>
-      <span><%= e.horas %>h x <%= fmt(e.tarifa) %></span>
+      <span><%= hs(e.horasPeriodo) %> x <%= fmt(e.tarifa) %> = <%= fmt(e.base) %></span>
       <% if (e.comision > 0) { %><span><%= e.comision %>% de <%= fmt(e.ventasP) %> = <%= fmt(e.comisionMonto) %></span><% } %>
     </div>
   </div>
 <% }); } %>
 
-<div class="stat-grid" style="margin-top:14px;">
-  <div class="stat wide"><div class="lbl">Costo total de sueldos estimado</div><div class="val neg"><%= fmt(totalSueldos) %></div></div>
+<div class="card">
+  <h2 class="sub">Agregar integrante</h2>
+  <form method="post" action="/admin/sueldos">
+    <label for="eq-nom">Nombre</label>
+    <input type="text" id="eq-nom" name="nombre" placeholder="Nombre" required>
+    <label for="eq-rol">Rol</label>
+    <input type="text" id="eq-rol" name="rol" placeholder="Ej: Venta / atención">
+    <div class="row2">
+      <div><label for="eq-tar">Precio por hora</label><input type="number" id="eq-tar" name="tarifa" inputmode="numeric" placeholder="0"></div>
+      <div><label for="eq-com">Comisión (%)</label><input type="number" id="eq-com" name="comision" inputmode="numeric" value="0"></div>
+    </div>
+    <div class="hint">Las horas no se cargan acá: se calculan solas con las jornadas que vayas guardando.</div>
+    <button class="primary" type="submit">Agregar</button>
+  </form>
 </div>
 
+<h2 class="sub">Jornadas del período</h2>
+<% if (!jornadas.length) { %>
+  <div class="empty">No hay jornadas cargadas en este período.</div>
+<% } else { %><div class="list-grid"><% jornadas.forEach(function(j){ %>
+  <div class="item">
+    <form class="inline-form" method="post" action="/admin/sueldos/jornadas/<%= j.id %>/borrar" data-confirm="¿Borrar esta jornada?">
+      <input type="hidden" name="volver" value="<%= volver %>">
+      <button class="del" type="submit">&times;</button>
+    </form>
+    <div class="head">
+      <span class="name"><%= j.persona %></span>
+      <span class="amount"><%= hs(j.horas) %></span>
+    </div>
+    <div class="meta">
+      <span class="chip"><%= j.fecha %></span>
+      <% if (j.hora_desde && j.hora_hasta) { %><span><%= j.hora_desde %> a <%= j.hora_hasta %></span><% } %>
+      <% if (j.nota) { %><span><%= j.nota %></span><% } %>
+    </div>
+  </div>
+<% }); %></div><% } %>
+
 <div class="card">
-  <h2 class="sub">Rentabilidad estimada del evento</h2>
-  <div class="bar"><span>Ingreso proyectado (producción)</span><span class="v"><%= fmt(ingreso) %></span></div>
-  <div class="bar"><span>Costo materiales</span><span class="v"><%= fmt(materiales) %></span></div>
-  <div class="bar"><span>Gastos operativos cargados</span><span class="v"><%= fmt(gastosOp) %></span></div>
-  <div class="bar"><span>Sueldos estimados</span><span class="v"><%= fmt(totalSueldos) %></span></div>
-  <div class="bar"><span>Ganancia neta estimada</span><span class="v <%= netoEvento>=0?'pos':'neg' %>"><%= fmt(netoEvento) %></span></div>
+  <h2 class="sub">Resultado del período</h2>
+  <div class="bar"><span>Ventas</span><span class="v pos"><%= fmt(ventasTotal) %></span></div>
+  <div class="bar"><span>Gastos</span><span class="v neg"><%= fmt(gastosOp) %></span></div>
+  <div class="bar"><span>Sueldos</span><span class="v neg"><%= fmt(totalSueldos) %></span></div>
+  <div class="bar"><span>Neto</span><span class="v <%= neto>=0?'pos':'neg' %>"><%= fmt(neto) %></span></div>
 </div>
+
+<script>
+function modoJornada(v){
+  document.getElementById('bloque-horario').style.display = (v === 'horario') ? '' : 'none';
+  document.getElementById('bloque-horas').style.display   = (v === 'horas')   ? '' : 'none';
+}
+</script>
 <%- include('../partials/nav') %>
 <%- include('../partials/foot') %>

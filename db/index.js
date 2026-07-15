@@ -31,6 +31,24 @@ function migrar() {
   if (!columnasPedidos.includes('datos')) {
     db.exec("ALTER TABLE pedidos ADD COLUMN datos TEXT");
   }
+
+  // Sueldos: las horas fijas que estaban cargadas en 'equipo' pasan a ser una
+  // jornada, así el dato no se pierde al empezar a usar el cálculo por período.
+  // Es idempotente: al migrar se pone equipo.horas = 0, así no vuelve a correr.
+  const legacy = db.prepare('SELECT id, negocio_id, horas, creado_en FROM equipo WHERE horas > 0').all();
+  if (legacy.length) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ins = db.prepare("INSERT INTO jornadas (negocio_id, equipo_id, fecha, horas, nota) VALUES (?,?,?,?,?)");
+    const upd = db.prepare('UPDATE equipo SET horas = 0 WHERE id = ?');
+    const tx = db.transaction(() => {
+      legacy.forEach(e => {
+        const fecha = (e.creado_en || '').slice(0, 10) || hoy;
+        ins.run(e.negocio_id, e.id, fecha, e.horas, 'Horas cargadas antes del cálculo por jornadas');
+        upd.run(e.id);
+      });
+    });
+    tx();
+  }
 }
 
 module.exports = { db, migrar, DB_PATH };
