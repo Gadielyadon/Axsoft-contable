@@ -86,16 +86,17 @@
       </div>
     </div>
 
-    <button class="primary" type="submit">Registrar venta</button>
+    <button class="primary" type="submit" id="v-guardar">Registrar venta</button>
+    <div id="v-aviso" class="aviso-ok" hidden>Venta registrada</div>
   </form>
 </div>
 </div>
 
 <div class="col-list">
 <h2 class="sub">Últimas ventas</h2>
-<% if (!ventas.length) { %>
-  <div class="empty">Todavía no hay ventas cargadas.</div>
-<% } else { %><div class="list-grid"><% ventas.forEach(function(v){ %>
+<div id="ventas-vacio" class="empty" <%= ventas.length ? 'hidden' : '' %>>Todavía no hay ventas cargadas.</div>
+<div class="list-grid" id="lista-ventas">
+<% ventas.forEach(function(v){ %>
   <div class="item">
     <form class="inline-form" method="post" action="/ventas/borrar" data-confirm="¿Borrar esta venta?">
       <input type="hidden" name="clave" value="<%= v.clave %>">
@@ -124,7 +125,8 @@
       <span><%= fechaCorta(v.creado_en) %></span>
     </div>
   </div>
-<% }); %></div><% } %>
+<% }); %>
+</div>
 </div>
 </div>
 <%- include('partials/nav') %>

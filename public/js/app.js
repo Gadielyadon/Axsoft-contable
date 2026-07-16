@@ -209,8 +209,13 @@ function pintarCarrito(){
 }
 
 // Al enviar: si se olvidó de tocar "Agregar", igual tomamos lo que escribió.
+// Y si el navegador puede, mandamos la venta por atrás (sin recargar la página):
+// se registra al toque y gasta muchísimo menos internet.
+// IMPORTANTE: si algo de esto falla, el formulario se manda como siempre.
 document.addEventListener('submit', function(e){
-  if(!e.target || e.target.id !== 'form-venta') return;
+  var form = e.target;
+  if(!form || form.id !== 'form-venta') return;
+
   if(CARRITO.length === 0){
     var prod = document.getElementById('v-producto');
     var precio = document.getElementById('v-precio');
@@ -221,6 +226,140 @@ document.addEventListener('submit', function(e){
       e.preventDefault();
       alert('Agregá al menos un producto a la venta.');
       if(prod) prod.focus();
+      return;
     }
   }
+
+  // Sin fetch o sin FormData: que lo mande el navegador como toda la vida.
+  if(!window.fetch || !window.FormData || !window.URLSearchParams) return;
+
+  e.preventDefault();
+  enviarVenta(form);
 });
+
+function enviarVenta(form){
+  var boton = document.getElementById('v-guardar');
+  var datos = new URLSearchParams(new FormData(form)).toString();
+
+  if(boton){ boton.disabled = true; boton.textContent = 'Guardando...'; }
+
+  fetch('/ventas', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-AxSoft': '1'
+    },
+    body: datos,
+    credentials: 'same-origin'
+  })
+  .then(function(r){
+    if(!r.ok) throw new Error('respuesta ' + r.status);
+    return r.json();
+  })
+  .then(function(data){
+    if(!data || !data.ok) throw new Error('sin ok');
+    pintarVentaNueva(data.venta);
+    refrescarStock(data.stock);
+    CARRITO = [];
+    pintarCarrito();
+    var cli = document.getElementById('v-cliente');
+    if(cli) cli.value = '';
+    if(boton){ boton.disabled = false; boton.textContent = 'Registrar venta'; }
+    avisar();
+  })
+  .catch(function(){
+    // Cualquier problema (sin señal, sesión vencida, etc): lo mandamos
+    // de la forma tradicional, así la venta NO se pierde.
+    if(boton){ boton.textContent = 'Registrar venta'; boton.disabled = false; }
+    form.submit();
+  });
+}
+
+function avisar(){
+  var a = document.getElementById('v-aviso');
+  if(!a) return;
+  a.hidden = false;
+  clearTimeout(a._t);
+  a._t = setTimeout(function(){ a.hidden = true; }, 2200);
+}
+
+function pintarVentaNueva(v){
+  var lista = document.getElementById('lista-ventas');
+  if(!lista || !v) return;
+  var vacio = document.getElementById('ventas-vacio');
+  if(vacio) vacio.hidden = true;
+
+  var item = document.createElement('div');
+  item.className = 'item recien';
+
+  var fBorrar = document.createElement('form');
+  fBorrar.className = 'inline-form';
+  fBorrar.method = 'post';
+  fBorrar.action = '/ventas/borrar';
+  fBorrar.setAttribute('data-confirm', '¿Borrar esta venta?');
+  var hid = document.createElement('input');
+  hid.type = 'hidden'; hid.name = 'clave'; hid.value = v.clave;
+  var bx = document.createElement('button');
+  bx.className = 'del'; bx.type = 'submit'; bx.innerHTML = '&times;';
+  fBorrar.appendChild(hid); fBorrar.appendChild(bx);
+  item.appendChild(fBorrar);
+
+  var head = document.createElement('div');
+  head.className = 'head';
+  var nom = document.createElement('span');
+  nom.className = 'name'; nom.textContent = v.titulo;
+  var monto = document.createElement('span');
+  monto.className = 'amount pos'; monto.textContent = v.totalFmt;
+  head.appendChild(nom); head.appendChild(monto);
+  item.appendChild(head);
+
+  if(v.mostrarLineas){
+    var cont = document.createElement('div');
+    cont.className = 'lineas';
+    v.items.forEach(function(i){
+      var l = document.createElement('div');
+      l.className = 'linea';
+      var t = document.createElement('span'); t.textContent = i.txt;
+      var m = document.createElement('span'); m.className = 'linea-monto'; m.textContent = i.montoFmt;
+      l.appendChild(t); l.appendChild(m);
+      cont.appendChild(l);
+    });
+    item.appendChild(cont);
+  } else if(v.detalleUnico){
+    var d = document.createElement('div');
+    d.className = 'muted';
+    d.style.margin = '2px 0 4px';
+    d.textContent = v.detalleUnico;
+    item.appendChild(d);
+  }
+
+  var meta = document.createElement('div');
+  meta.className = 'meta';
+  var chip = function(txt, clase){
+    var s = document.createElement('span');
+    s.className = clase || '';
+    s.textContent = txt;
+    return s;
+  };
+  meta.appendChild(chip(v.vendedor, 'chip'));
+  meta.appendChild(chip(v.pago, 'chip pay'));
+  if(v.cliente) meta.appendChild(chip(v.cliente));
+  meta.appendChild(chip(v.fechaTxt));
+  item.appendChild(meta);
+
+  lista.insertBefore(item, lista.firstChild);
+}
+
+// Actualiza el "quedan N" del buscador sin volver a pedir nada al servidor
+function refrescarStock(stock){
+  if(!stock || !stock.length) return;
+  stock.forEach(function(s){
+    var btn = document.querySelector('.sug-item[data-id="' + s.id + '"]');
+    if(!btn) return;
+    var chip = btn.querySelector('.chip');
+    if(chip){
+      chip.textContent = 'quedan ' + s.cantidad;
+      if(s.cantidad <= 0) chip.classList.add('low'); else chip.classList.remove('low');
+    }
+  });
+}

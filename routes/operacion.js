@@ -111,7 +111,40 @@ router.post('/ventas', (req, res) => {
     });
   });
   tx();
-  res.redirect('/ventas');
+
+  // Si la venta vino por JavaScript (sin recargar la página), devolvemos solo
+  // lo justo para que el celular pinte la venta nueva: unos pocos bytes en vez
+  // de bajar la pantalla entera otra vez. Si no, redirect de toda la vida.
+  if (req.get('X-AxSoft') !== '1') return res.redirect('/ventas');
+
+  const fmt = req.app.locals.fmt;
+  const fechaCorta = req.app.locals.fechaCorta;
+  const fila = db.prepare('SELECT creado_en FROM ventas WHERE ticket = ? LIMIT 1').get(ticket);
+  const total = lineas.reduce((s, l) => s + l.precioUnit * l.cantidad, 0);
+  const variasLineas = (lineas.length > 1 || lineas[0].cantidad > 1);
+
+  const idsStock = Array.from(new Set(lineas.filter(l => l.stockId).map(l => l.stockId)));
+  const stock = idsStock
+    .map(id => db.prepare('SELECT id, cantidad FROM stock WHERE id = ? AND negocio_id = ?').get(id, req.negocioId))
+    .filter(Boolean);
+
+  res.json({
+    ok: true,
+    venta: {
+      clave: ticket,
+      titulo: lineas.length > 1 ? lineas.length + ' productos' : (lineas[0].producto || 'Venta'),
+      totalFmt: fmt(total),
+      fechaTxt: fechaCorta(fila ? fila.creado_en : null),
+      vendedor, pago, cliente,
+      mostrarLineas: variasLineas,
+      detalleUnico: (!variasLineas && lineas[0].detalle) ? lineas[0].detalle : null,
+      items: lineas.map(l => ({
+        txt: (l.cantidad > 1 ? l.cantidad + ' x ' : '') + (l.producto || 'Producto') + (l.detalle ? ' — ' + l.detalle : ''),
+        montoFmt: fmt(l.precioUnit * l.cantidad)
+      }))
+    },
+    stock
+  });
 });
 
 // Borra una venta completa (todas sus líneas)
