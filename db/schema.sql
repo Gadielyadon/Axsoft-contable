@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS ventas (
   pago       TEXT,
   cliente    TEXT,
   stock_id   INTEGER,
+  cantidad   REAL NOT NULL DEFAULT 1,
+  ticket     TEXT,
   creado_en  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE
 );

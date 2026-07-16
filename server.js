@@ -10,7 +10,7 @@ const { migrar } = require('./db');
 migrar(); // asegura que las tablas existan al arrancar
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3010;
 const APP_NAME = 'AxSoft Contable';
 
 // Detrás de Nginx (necesario para cookies "secure" con SSL)
@@ -23,7 +23,17 @@ app.set('views', path.join(__dirname, 'views'));
 // Body parsing y estáticos
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// Estáticos: se guardan 30 días en el celular (las URLs llevan versión, así que
+// cuando cambian se renuevan solas). Esto ahorra muchísimos datos.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '30d',
+  setHeaders(res, filePath) {
+    // El service worker y el manifest deben poder actualizarse siempre.
+    if (filePath.endsWith('sw.js') || filePath.endsWith('manifest.json')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Sesiones persistidas en SQLite (sobreviven reinicios de PM2)
 app.use(session({
@@ -44,7 +54,19 @@ app.locals.APP_NAME = APP_NAME;
 // Cache-busting: cambia solo cada vez que se reinicia el server, así el
 // celular/PC del cliente siempre baja el CSS nuevo después de un deploy
 // (sin esto, el navegador puede quedarse con el styles.css viejo cacheado).
-app.locals.ASSET_V = Date.now();
+// Versión de los archivos de diseño/scripts.
+// Se calcula con la fecha de modificación real: así el celular NO vuelve a
+// descargarlos en cada reinicio del servidor, solo cuando cambian de verdad.
+app.locals.ASSET_V = (function () {
+  try {
+    const fs = require('fs');
+    const css = fs.statSync(path.join(__dirname, 'public/css/styles.css')).mtimeMs;
+    const js = fs.statSync(path.join(__dirname, 'public/js/app.js')).mtimeMs;
+    return Math.floor(Math.max(css, js)).toString(36);
+  } catch (e) {
+    return '1';
+  }
+})();
 app.locals.fmt = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
 app.locals.fechaCorta = (iso) => {
   if (!iso) return '';

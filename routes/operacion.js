@@ -20,38 +20,109 @@ const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
 /* ===================== VENTAS ===================== */
 router.get('/ventas', (req, res) => {
-  const ventas = db.prepare('SELECT * FROM ventas WHERE negocio_id = ? ORDER BY id DESC LIMIT 40').all(req.negocioId);
+  const filas = db.prepare('SELECT * FROM ventas WHERE negocio_id = ? ORDER BY id DESC LIMIT 60').all(req.negocioId);
+
+  // Agrupamos por ticket: los productos de una misma venta van juntos en una tarjeta.
+  // Las ventas viejas (sin ticket) quedan cada una en su propia tarjeta.
+  const mapa = new Map();
+  filas.forEach(v => {
+    const clave = v.ticket || ('v' + v.id);
+    if (!mapa.has(clave)) {
+      mapa.set(clave, {
+        clave, vendedor: v.vendedor, pago: v.pago, cliente: v.cliente,
+        creado_en: v.creado_en, items: [], total: 0
+      });
+    }
+    const g = mapa.get(clave);
+    g.items.push(v);
+    g.total += v.precio;
+  });
+  const ventas = Array.from(mapa.values());
+
   const stock = db.prepare('SELECT id, nombre, cantidad, precio FROM stock WHERE negocio_id = ? ORDER BY nombre').all(req.negocioId);
   const empleados = db.prepare("SELECT nombre FROM usuarios WHERE negocio_id = ? AND activo = 1 ORDER BY nombre").all(req.negocioId);
   res.render('ventas', { activeNav: 'ventas', ventas, stock, empleados });
 });
 
+// Toma las líneas del carrito (items[0][producto], items[0][precio], ...).
+// Si no vino ningún item, usa los campos sueltos (compatibilidad).
+function lineasDeVenta(body) {
+  let crudas = [];
+  if (Array.isArray(body.items)) crudas = body.items;
+  else if (body.items && typeof body.items === 'object') crudas = Object.values(body.items);
+
+  const lineas = [];
+  crudas.forEach(it => {
+    if (!it) return;
+    const producto = (it.producto || '').trim();
+    const precio = num(it.precio);
+    let cantidad = Math.floor(num(it.cantidad)) || 1;
+    if (cantidad < 1) cantidad = 1;
+    if (!producto && precio <= 0) return;
+    lineas.push({
+      producto,
+      detalle: (it.detalle || '').trim(),
+      precioUnit: precio,
+      cantidad,
+      stockId: it.stock_id ? parseInt(it.stock_id, 10) : null
+    });
+  });
+
+  if (!lineas.length) {
+    const precio = num(body.precio);
+    if (precio > 0 || (body.producto || '').trim()) {
+      lineas.push({
+        producto: (body.producto || '').trim(),
+        detalle: (body.detalle || '').trim(),
+        precioUnit: precio,
+        cantidad: 1,
+        stockId: body.stock_id ? parseInt(body.stock_id, 10) : null
+      });
+    }
+  }
+  return lineas;
+}
+
 router.post('/ventas', (req, res) => {
-  const precio = num(req.body.precio);
-  if (precio <= 0) return res.redirect('/ventas');
-  const stockId = req.body.stock_id ? parseInt(req.body.stock_id, 10) : null;
+  const lineas = lineasDeVenta(req.body);
+  if (!lineas.length) return res.redirect('/ventas');
+
+  const ticket = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const vendedor = req.body.vendedor || req.session.user.nombre;
+  const pago = req.body.pago || 'Efectivo';
+  const cliente = req.body.cliente || '';
 
   const tx = db.transaction(() => {
-    if (stockId) {
-      const item = db.prepare('SELECT cantidad FROM stock WHERE id = ? AND negocio_id = ?').get(stockId, req.negocioId);
-      if (item && item.cantidad > 0) {
-        db.prepare('UPDATE stock SET cantidad = cantidad - 1 WHERE id = ? AND negocio_id = ?').run(stockId, req.negocioId);
+    lineas.forEach(l => {
+      if (l.stockId) {
+        const item = db.prepare('SELECT cantidad FROM stock WHERE id = ? AND negocio_id = ?').get(l.stockId, req.negocioId);
+        if (item) {
+          db.prepare('UPDATE stock SET cantidad = MAX(0, cantidad - ?) WHERE id = ? AND negocio_id = ?')
+            .run(l.cantidad, l.stockId, req.negocioId);
+        }
       }
-    }
-    db.prepare(`INSERT INTO ventas (negocio_id, usuario_id, vendedor, producto, detalle, precio, pago, cliente, stock_id)
-                VALUES (?,?,?,?,?,?,?,?,?)`).run(
-      req.negocioId, req.session.user.id,
-      req.body.vendedor || req.session.user.nombre,
-      req.body.producto || '', req.body.detalle || '', precio,
-      req.body.pago || 'Efectivo', req.body.cliente || '', stockId
-    );
+      // precio = total de esa línea (unitario x cantidad), así la caja suma bien
+      db.prepare(`INSERT INTO ventas (negocio_id, usuario_id, vendedor, producto, detalle, precio, pago, cliente, stock_id, cantidad, ticket)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+        req.negocioId, req.session.user.id, vendedor,
+        l.producto, l.detalle, l.precioUnit * l.cantidad,
+        pago, cliente, l.stockId, l.cantidad, ticket
+      );
+    });
   });
   tx();
   res.redirect('/ventas');
 });
 
-router.post('/ventas/:id/borrar', (req, res) => {
-  db.prepare('DELETE FROM ventas WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
+// Borra una venta completa (todas sus líneas)
+router.post('/ventas/borrar', (req, res) => {
+  const clave = (req.body.clave || '').trim();
+  if (!clave) return res.redirect('/ventas');
+  if (/^v\d+$/.test(clave)) {
+    db.prepare('DELETE FROM ventas WHERE id = ? AND negocio_id = ?').run(clave.slice(1), req.negocioId);
+  } else {
+    db.prepare('DELETE FROM ventas WHERE ticket = ? AND negocio_id = ?').run(clave, req.negocioId);
+  }
   res.redirect('/ventas');
 });
 

@@ -5,6 +5,16 @@ const { db } = require('../db');
 const { requireLogin, requireRole, tenant, SECCIONES, SECCION_KEYS } = require('../middleware/auth');
 const { enviarXLSX } = require('../lib/xlsx');
 const { camposPedidoDe, TIPOS_CAMPO } = require('../lib/pedidos');
+const { leerProductos, CAMPOS } = require('../lib/importar');
+const multer = require('multer');
+
+const MAX_EMPLEADOS = 5;
+
+// Recibe el Excel en memoria (no se guarda ningún archivo en el servidor)
+const subida = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 } // 2 MB
+});
 const router = express.Router();
 
 function configDe(negocioId) {
@@ -340,6 +350,9 @@ router.post('/sueldos/jornadas/:id/borrar', (req, res) => {
 });
 
 /* ===================== EMPLEADAS ===================== */
+function contarEmpleados(negocioId) {
+  return db.prepare("SELECT COUNT(*) c FROM usuarios WHERE negocio_id = ? AND rol = 'empleado'").get(negocioId).c;
+}
 function listaUsuarios(negocioId) {
   return db.prepare("SELECT id, nombre, usuario, rol, activo, permisos FROM usuarios WHERE negocio_id = ? ORDER BY rol, nombre")
     .all(negocioId)
@@ -358,7 +371,7 @@ router.get('/empleados', (req, res) => {
   const usuarios = listaUsuarios(req.negocioId);
   res.render('admin/empleados', {
     activeAdmin: 'empleados', usuarios, error: null, ok: req.query.ok || null,
-    SECCIONES,
+    SECCIONES, limite: MAX_EMPLEADOS, alcanzoLimite: contarEmpleados(req.negocioId) >= MAX_EMPLEADOS,
     pinActivo: !!configDe(req.negocioId).pin_panel
   });
 });
@@ -370,10 +383,13 @@ router.post('/empleados', (req, res) => {
 
   const rerender = (error) => res.render('admin/empleados', {
     activeAdmin: 'empleados', usuarios: listaUsuarios(req.negocioId), error, ok: null,
-    SECCIONES,
+    SECCIONES, limite: MAX_EMPLEADOS, alcanzoLimite: contarEmpleados(req.negocioId) >= MAX_EMPLEADOS,
     pinActivo: !!configDe(req.negocioId).pin_panel
   });
 
+  if (contarEmpleados(req.negocioId) >= MAX_EMPLEADOS) {
+    return rerender(`Ya tenés las ${MAX_EMPLEADOS} empleadas que incluye tu plan. Desactivá alguna si querés dar de alta otra persona.`);
+  }
   if (!nombre || !usuario || pass.length < 4) {
     return rerender('Completá nombre, usuario y una clave de 4+ caracteres.');
   }
@@ -500,7 +516,12 @@ router.get('/reportes/contactos.xlsx', (req, res) => {
 router.get('/ajustes', (req, res) => {
   const campos = camposPedidoDe(req.negocioId);
   res.render('admin/ajustes', {
-    activeAdmin: 'ajustes', campos, tipos: TIPOS_CAMPO, ok: req.query.ok || null
+    activeAdmin: 'ajustes', campos, tipos: TIPOS_CAMPO, ok: req.query.ok || null,
+    CAMPOS,
+    imp: (req.query.nuevos || req.query.act || req.query.ign)
+      ? { nuevos: +req.query.nuevos || 0, act: +req.query.act || 0, ign: +req.query.ign || 0 }
+      : null,
+    impError: req.query.err || null
   });
 });
 
@@ -535,6 +556,61 @@ router.post('/ajustes/campos/:id/mover', (req, res) => {
   });
   tx();
   res.redirect('/admin/ajustes');
+});
+
+/* ===================== AJUSTES · IMPORTAR PRODUCTOS ===================== */
+
+// Plantilla de ejemplo para que la llenen y la suban
+router.get('/ajustes/plantilla.xlsx', (req, res) => {
+  enviarXLSX(res, 'plantilla-productos.xlsx', 'Productos', CAMPOS, [
+    ['Extensión rubia 60cm', 'Extensiones', 10, 12000, 7000],
+    ['Trenza kanekalon', 'Trenzas', 25, 8000, 2000]
+  ]);
+});
+
+router.post('/ajustes/importar', (req, res) => {
+  subida.single('archivo')(req, res, (errSubida) => {
+    const volverCon = (params) => res.redirect('/admin/ajustes?' + new URLSearchParams(params).toString());
+
+    if (errSubida) {
+      const msg = errSubida.code === 'LIMIT_FILE_SIZE'
+        ? 'El archivo es muy grande (máximo 2 MB).'
+        : 'No se pudo subir el archivo.';
+      return volverCon({ err: msg });
+    }
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+      return volverCon({ err: 'Elegí un archivo antes de importar.' });
+    }
+
+    const { productos, ignoradas, error } = leerProductos(req.file.buffer);
+    if (error) return volverCon({ err: error });
+    if (!productos.length) return volverCon({ err: 'No encontré productos con nombre en la planilla.' });
+
+    const neg = req.negocioId;
+    const buscar = db.prepare('SELECT id FROM stock WHERE negocio_id = ? AND lower(nombre) = lower(?)');
+    const insertar = db.prepare('INSERT INTO stock (negocio_id, categoria, nombre, cantidad, precio, costo) VALUES (?,?,?,?,?,?)');
+    const actualizar = db.prepare(`UPDATE stock SET cantidad = cantidad + ?,
+                                   precio = CASE WHEN ? > 0 THEN ? ELSE precio END,
+                                   costo  = CASE WHEN ? > 0 THEN ? ELSE costo  END,
+                                   categoria = CASE WHEN ? <> '' THEN ? ELSE categoria END
+                                   WHERE id = ? AND negocio_id = ?`);
+    let nuevos = 0, act = 0;
+    const tx = db.transaction(() => {
+      productos.forEach(p => {
+        const ya = buscar.get(neg, p.nombre);
+        if (ya) {
+          actualizar.run(p.cantidad, p.precio, p.precio, p.costo, p.costo, p.categoria, p.categoria, ya.id, neg);
+          act++;
+        } else {
+          insertar.run(neg, p.categoria, p.nombre, p.cantidad, p.precio, p.costo);
+          nuevos++;
+        }
+      });
+    });
+    tx();
+
+    volverCon({ nuevos, act, ign: ignoradas });
+  });
 });
 
 module.exports = router;

@@ -37,6 +37,9 @@
 
 <div class="card">
   <h2 class="sub">Dar de alta empleada</h2>
+  <% if (alcanzoLimite) { %>
+    <div class="hint">Ya tenés las <%= limite %> empleadas que incluye tu plan. Para dar de alta otra persona, desactivá alguna más abajo.</div>
+  <% } else { %>
   <form method="post" action="/admin/empleados">
     <label for="e-nom">Nombre</label>
     <input type="text" id="e-nom" name="nombre" placeholder="Ej: Martina" required>
@@ -58,9 +61,10 @@
     <button class="primary" type="submit">Crear empleada</button>
   </form>
   <div class="hint">Cada empleada entra con su propio usuario y clave, y solo ve las secciones que le tildaste. La caja, los pagos, la producción y los sueldos son solo tuyos.</div>
+  <% } %>
 </div>
 
-<h2 class="sub">Usuarios del negocio (<%= usuarios.filter(function(u){return u.rol==='empleado';}).length %> empleadas)</h2>
+<h2 class="sub">Usuarios del negocio (<%= usuarios.filter(function(u){return u.rol==='empleado';}).length %>/<%= limite %> empleadas)</h2>
 <% usuarios.forEach(function(u){ %>
   <div class="item">
     <div class="head">

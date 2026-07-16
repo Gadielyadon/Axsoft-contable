@@ -13,6 +13,11 @@
     { key: 'contador',  href: '/contador',  label: 'Contador',
       ico: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>' }
   ];
+  // Ajustes vive en el sidebar, pero solo lo ve la dueña.
+  var _ajustes = { href: '/admin/ajustes', label: 'Ajustes',
+    ico: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 004.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>' };
+  var _esDuena = (user && user.rol === 'dueno');
+  var _enAjustes = (typeof activeAdmin !== 'undefined' && activeAdmin === 'ajustes');
   var _puede = function(key){
     if (!user) return false;
     if (user.rol === 'dueno' || user.rol === 'superadmin') return true;
@@ -25,4 +30,7 @@
 <% _secciones.forEach(function(s){ if (_puede(s.key)) { %>
   <a href="<%= s.href %>" class="<%= activeNav===s.key ? 'active':'' %>"><span class="ico"><%- s.ico %></span><%= s.label %></a>
 <% } }); %>
+<% if (_esDuena) { %>
+  <a href="<%= _ajustes.href %>" class="<%= _enAjustes ? 'active':'' %>"><span class="ico"><%- _ajustes.ico %></span><%= _ajustes.label %></a>
+<% } %>
 </nav>

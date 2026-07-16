@@ -1,9 +1,21 @@
+<%
+  var _panel = [
+    { key:'caja',       href:'/admin/caja',       label:'Caja',
+      ico:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.2"/><path d="M3 10.2h18"/><circle cx="17" cy="14.3" r="1.3"/></svg>' },
+    { key:'pagos',      href:'/admin/pagos',      label:'Pagos',
+      ico:'<svg viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.6 5 3.2 5 1.3 5 3.3-2.2 3-5 3-5-1.1-5-3"/></svg>' },
+    { key:'produccion', href:'/admin/produccion', label:'Producción',
+      ico:'<svg viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 20V9l5 3V9l5 3V6l4 3v11"/></svg>' },
+    { key:'sueldos',    href:'/admin/sueldos',    label:'Sueldos',
+      ico:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.1 2.5-5.5 5.5-5.5s5.5 2.4 5.5 5.5"/><path d="M17 9h4M19 7v4"/></svg>' },
+    { key:'reportes',   href:'/admin/reportes',   label:'Reportes',
+      ico:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>' },
+    { key:'empleados',  href:'/admin/empleados',  label:'Empleadas',
+      ico:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.1 2.9-5.5 6.5-5.5s6.5 2.4 6.5 5.5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17.5 14c2.3 0 4 1.7 4 4"/></svg>' }
+  ];
+%>
 <div class="subnav">
-  <a href="/admin/caja"       class="<%= activeAdmin==='caja'       ? 'active':'' %>">Caja</a>
-  <a href="/admin/pagos"      class="<%= activeAdmin==='pagos'      ? 'active':'' %>">Pagos</a>
-  <a href="/admin/produccion" class="<%= activeAdmin==='produccion' ? 'active':'' %>">Producción</a>
-  <a href="/admin/sueldos"    class="<%= activeAdmin==='sueldos'    ? 'active':'' %>">Sueldos</a>
-  <a href="/admin/reportes"   class="<%= activeAdmin==='reportes'   ? 'active':'' %>">Reportes</a>
-  <a href="/admin/empleados"  class="<%= activeAdmin==='empleados'  ? 'active':'' %>">Empleadas</a>
-  <a href="/admin/ajustes"    class="<%= activeAdmin==='ajustes'    ? 'active':'' %>">Ajustes</a>
+  <% _panel.forEach(function(p){ %>
+    <a href="<%= p.href %>" class="<%= activeAdmin===p.key ? 'active':'' %>"><%- p.ico %><%= p.label %></a>
+  <% }); %>
 </div>

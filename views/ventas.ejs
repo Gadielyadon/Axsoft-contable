@@ -1,10 +1,11 @@
 <%- include('partials/head') %>
+<% var micSvg = '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg>'; %>
 <h1 class="title">Registrar venta</h1>
 
 <div class="layout-2col">
 <div class="col-form">
 <div class="card">
-  <form method="post" action="/ventas">
+  <form method="post" action="/ventas" id="form-venta">
     <label for="v-vendedor">Vendedor/a</label>
     <select id="v-vendedor" name="vendedor">
       <% empleados.forEach(function(e){ %><option><%= e.nombre %></option><% }); %>
@@ -12,32 +13,66 @@
     </select>
 
     <label for="v-producto">Producto</label>
-    <div class="field-mic">
-      <input type="text" id="v-producto" name="producto" placeholder="Ej: trenza, extensión, producto...">
-      <button type="button" class="mic" onclick="dictar('v-producto', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
-    </div>
+    <div class="buscador">
+      <div class="field-mic">
+        <input type="text" id="v-producto" autocomplete="off"
+               placeholder="<%= stock.length ? 'Escribí o tocá para buscar en tu stock' : 'Ej: trenza, extensión, producto...' %>"
+               oninput="buscarStock(this.value)" onfocus="buscarStock(this.value)">
+        <button type="button" class="mic" onclick="dictar('v-producto', this)"><%- micSvg %></button>
+      </div>
 
-    <% if (stock.length) { %>
-    <label for="v-stock">Descontar de stock (opcional)</label>
-    <select id="v-stock" name="stock_id" onchange="autocompletarPrecio(this)">
-      <option value="">— Sin vincular —</option>
-      <% stock.forEach(function(s){ %>
-        <option value="<%= s.id %>" data-precio="<%= s.precio %>"><%= s.nombre %> — quedan <%= s.cantidad %> — <%= fmt(s.precio) %></option>
-      <% }); %>
-    </select>
-    <% } %>
+      <input type="hidden" id="v-stock-id" value="">
+
+      <% if (stock.length) { %>
+      <div id="v-sug" class="sug" hidden>
+        <% stock.forEach(function(s){ %>
+          <button type="button" class="sug-item" onclick="elegirStock(this)"
+                  data-id="<%= s.id %>" data-nombre="<%= s.nombre %>" data-precio="<%= s.precio %>"
+                  data-q="<%= s.nombre.toLowerCase() %>">
+            <span class="sug-nom"><%= s.nombre %></span>
+            <span class="sug-meta">
+              <b><%= fmt(s.precio) %></b>
+              <span class="chip <%= s.cantidad <= 0 ? 'low' : '' %>">quedan <%= s.cantidad %></span>
+            </span>
+          </button>
+        <% }); %>
+        <div id="v-sug-vacio" class="sug-vacio" hidden>No hay nada así en tu stock. Igual podés escribirlo a mano.</div>
+      </div>
+      <% } %>
+
+      <div id="v-vinculo" class="vinculo" hidden>
+        <span>Descuenta de stock: <b id="v-vinculo-txt"></b></span>
+        <button type="button" onclick="desvincularStock()">Quitar</button>
+      </div>
+    </div>
 
     <label for="v-detalle">Detalle</label>
     <div class="field-mic">
-      <input type="text" id="v-detalle" name="detalle" placeholder="Ej: fucsia, niña">
-      <button type="button" class="mic" onclick="dictar('v-detalle', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+      <input type="text" id="v-detalle" placeholder="Ej: fucsia, niña">
+      <button type="button" class="mic" onclick="dictar('v-detalle', this)"><%- micSvg %></button>
     </div>
 
     <div class="row2">
       <div>
-        <label for="v-precio">Precio</label>
-        <input type="number" id="v-precio" name="precio" inputmode="numeric" placeholder="0" required>
+        <label for="v-precio">Precio unitario</label>
+        <input type="number" id="v-precio" inputmode="numeric" placeholder="0">
       </div>
+      <div>
+        <label for="v-cant">Cantidad</label>
+        <input type="number" id="v-cant" inputmode="numeric" value="1" min="1">
+      </div>
+    </div>
+
+    <button type="button" class="agregar" onclick="agregarAlCarrito()">+ Agregar a la venta</button>
+
+    <div id="carrito" class="carrito" hidden>
+      <div id="carrito-items"></div>
+      <div class="carrito-total"><span>Total de la venta</span><b id="carrito-total">$0</b></div>
+    </div>
+
+    <div style="height:1px; background:var(--line); margin:16px 0;"></div>
+
+    <div class="row2">
       <div>
         <label for="v-pago">Medio de pago</label>
         <select id="v-pago" name="pago">
@@ -45,12 +80,10 @@
           <option>Crédito</option><option>QR / Mercado Pago</option>
         </select>
       </div>
-    </div>
-
-    <label for="v-cliente">Clienta (opcional)</label>
-    <div class="field-mic">
-      <input type="text" id="v-cliente" name="cliente" placeholder="Nombre">
-      <button type="button" class="mic" onclick="dictar('v-cliente', this)"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg></button>
+      <div>
+        <label for="v-cliente">Clienta (opcional)</label>
+        <input type="text" id="v-cliente" name="cliente" placeholder="Nombre">
+      </div>
     </div>
 
     <button class="primary" type="submit">Registrar venta</button>
@@ -64,13 +97,26 @@
   <div class="empty">Todavía no hay ventas cargadas.</div>
 <% } else { %><div class="list-grid"><% ventas.forEach(function(v){ %>
   <div class="item">
-    <form class="inline-form" method="post" action="/ventas/<%= v.id %>/borrar" data-confirm="¿Borrar esta venta?">
+    <form class="inline-form" method="post" action="/ventas/borrar" data-confirm="¿Borrar esta venta?">
+      <input type="hidden" name="clave" value="<%= v.clave %>">
       <button class="del" type="submit">&times;</button>
     </form>
     <div class="head">
-      <span class="name"><%= v.producto || 'Venta' %><%= v.detalle ? ' — ' + v.detalle : '' %></span>
-      <span class="amount pos"><%= fmt(v.precio) %></span>
+      <span class="name"><%= v.items.length > 1 ? v.items.length + ' productos' : (v.items[0].producto || 'Venta') %></span>
+      <span class="amount pos"><%= fmt(v.total) %></span>
     </div>
+    <% if (v.items.length > 1 || v.items[0].cantidad > 1) { %>
+      <div class="lineas">
+        <% v.items.forEach(function(i){ %>
+          <div class="linea">
+            <span><%= i.cantidad > 1 ? i.cantidad + ' x ' : '' %><%= i.producto || 'Producto' %><%= i.detalle ? ' — ' + i.detalle : '' %></span>
+            <span class="linea-monto"><%= fmt(i.precio) %></span>
+          </div>
+        <% }); %>
+      </div>
+    <% } else if (v.items[0].detalle) { %>
+      <div class="muted" style="margin:2px 0 4px;"><%= v.items[0].detalle %></div>
+    <% } %>
     <div class="meta">
       <span class="chip"><%= v.vendedor %></span>
       <span class="chip pay"><%= v.pago %></span>

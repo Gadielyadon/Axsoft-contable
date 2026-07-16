@@ -4,6 +4,28 @@
 <h1 class="title">Ajustes</h1>
 
 <% if (ok) { %><div class="alert ok">Campo agregado. Ya aparece en el formulario de Pedidos.</div><% } %>
+<% if (impError) { %><div class="alert"><%= impError %></div><% } %>
+<% if (imp) { %>
+  <div class="alert ok">
+    Importación lista: <b><%= imp.nuevos %></b> productos nuevos, <b><%= imp.act %></b> actualizados<% if (imp.ign) { %>, <b><%= imp.ign %></b> filas ignoradas (sin nombre)<% } %>.
+  </div>
+<% } %>
+
+<div class="card">
+  <h2 class="sub">Cargar productos desde Excel</h2>
+  <p class="muted" style="margin:0 0 10px;">Subí una planilla y se cargan todos tus productos de una vez, en vez de uno por uno.</p>
+  <div class="hint" style="margin:0 0 12px;">
+    <b>Columnas que toma:</b> <%= CAMPOS.join(' · ') %>.<br>
+    Solo <b>Nombre</b> es obligatorio; el resto puede ir vacío. No importan las mayúsculas ni los acentos en los encabezados.<br>
+    Si un producto ya existe (mismo nombre), <b>se le suma la cantidad</b> y se actualiza el precio.
+  </div>
+  <a class="ghost" href="/admin/ajustes/plantilla.xlsx" style="display:block; text-align:center; text-decoration:none; margin-bottom:12px;">Descargar plantilla de ejemplo</a>
+  <form method="post" action="/admin/ajustes/importar" enctype="multipart/form-data">
+    <label for="imp-file">Archivo (.xlsx o .csv)</label>
+    <input type="file" id="imp-file" name="archivo" accept=".xlsx,.xls,.csv" required>
+    <button class="primary" type="submit">Importar productos</button>
+  </form>
+</div>
 
 <div class="card">
   <h2 class="sub">Campos del formulario de Pedidos</h2>

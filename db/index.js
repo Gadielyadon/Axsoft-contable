@@ -32,6 +32,16 @@ function migrar() {
     db.exec("ALTER TABLE pedidos ADD COLUMN datos TEXT");
   }
 
+  // Ventas: 'cantidad' (cuántas unidades) y 'ticket' (agrupa los productos
+  // de una misma venta). Las ventas viejas quedan con cantidad 1 y sin ticket.
+  const columnasVentas = db.prepare("PRAGMA table_info(ventas)").all().map(c => c.name);
+  if (!columnasVentas.includes('cantidad')) {
+    db.exec("ALTER TABLE ventas ADD COLUMN cantidad REAL NOT NULL DEFAULT 1");
+  }
+  if (!columnasVentas.includes('ticket')) {
+    db.exec("ALTER TABLE ventas ADD COLUMN ticket TEXT");
+  }
+
   // Sueldos: las horas fijas que estaban cargadas en 'equipo' pasan a ser una
   // jornada, así el dato no se pierde al empezar a usar el cálculo por período.
   // Es idempotente: al migrar se pone equipo.horas = 0, así no vuelve a correr.
