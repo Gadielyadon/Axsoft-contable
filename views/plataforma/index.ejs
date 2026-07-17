@@ -2,7 +2,7 @@
 <h1 class="title">Negocios en la plataforma</h1>
 
 <% if (error) { %><div class="alert"><%= error %></div><% } %>
-<% if (ok) { %><div class="alert ok">Negocio creado. La dueña ya puede iniciar sesión con su usuario.</div><% } %>
+<% if (ok) { %><div class="alert ok"><%= ok === '1' ? 'Negocio creado. La dueña ya puede iniciar sesión con su usuario.' : ok %></div><% } %>
 
 <div class="card">
   <h2 class="sub">Dar de alta un negocio</h2>
@@ -43,9 +43,31 @@
       <span><%= n.usuarios %> usuario(s)</span>
       <span>facturado: <%= fmt(n.facturado) %></span>
     </div>
-    <form class="inline-form" method="post" action="/plataforma/negocios/<%= n.id %>/toggle">
-      <button class="ghost" type="submit" style="margin-top:9px;"><%= n.activo ? 'Desactivar' : 'Reactivar' %></button>
-    </form>
+    <div class="acciones-neg">
+      <form class="inline-form" method="post" action="/plataforma/negocios/<%= n.id %>/toggle">
+        <button class="ghost" type="submit"><%= n.activo ? 'Desactivar' : 'Reactivar' %></button>
+      </form>
+      <form class="inline-form" method="post" action="/plataforma/negocios/<%= n.id %>/borrar">
+        <input type="hidden" name="confirmar" value="">
+        <button class="peligro" type="button" onclick="borrarNegocio(this, '<%= n.nombre.replace(/'/g, "\\'") %>')">Borrar</button>
+      </form>
+    </div>
   </div>
 <% }); } %>
+<script>
+function borrarNegocio(btn, nombre){
+  var aviso = 'CUIDADO: esto borra "' + nombre + '" y TODOS sus datos para siempre:\n' +
+              'ventas, stock, gastos, pedidos, agenda, sueldos y usuarios.\n\n' +
+              'No se puede deshacer.\n\n' +
+              'Para confirmar, escribí el nombre del negocio:';
+  var r = prompt(aviso);
+  if(r === null) return;
+  if(r.trim().toLowerCase() !== nombre.trim().toLowerCase()){
+    alert('El nombre no coincide. No se borró nada.');
+    return;
+  }
+  btn.form.confirmar.value = r;
+  btn.form.submit();
+}
+</script>
 <%- include('../partials/foot') %>

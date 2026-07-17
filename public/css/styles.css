@@ -371,6 +371,19 @@ a.volver{display:inline-block; font-size:13px; font-weight:600; color:var(--prim
 .item.pendiente{border-left:3px solid var(--gold); background:#FFFDF8;}
 .chip.chip-pend{background:#F6E3C0; color:#8A5A16;}
 
+
+/* Acciones sobre un negocio (panel de plataforma) */
+.acciones-neg{display:flex; gap:8px; margin-top:9px;}
+.acciones-neg form{flex:1;}
+.acciones-neg button{width:100%;}
+button.peligro{
+  background:#FBECE9; color:#8A2A20; border:1px solid #E5C4BD;
+  border-radius:10px; padding:9px 12px; font-size:13px; font-weight:600;
+  font-family:var(--sans); cursor:pointer; transition:background .15s;
+}
+button.peligro:hover{background:#F6DAD4;}
+button.peligro:active{transform:scale(.98);}
+
 /* Aviso de venta registrada (sin recargar la página) */
 .aviso-ok{
   margin-top:10px; padding:10px 12px; border-radius:10px; text-align:center;

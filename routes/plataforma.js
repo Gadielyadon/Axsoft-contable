@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
       (SELECT COUNT(*) FROM usuarios u WHERE u.negocio_id = n.id) AS usuarios,
       (SELECT COALESCE(SUM(precio),0) FROM ventas v WHERE v.negocio_id = n.id) AS facturado
     FROM negocios n ORDER BY n.id DESC`).all();
-  res.render('plataforma/index', { negocios, error: null, ok: req.query.ok || null });
+  res.render('plataforma/index', { negocios, error: req.query.err || null, ok: req.query.ok || null });
 });
 
 router.post('/negocios', (req, res) => {
@@ -50,6 +50,24 @@ router.post('/negocios', (req, res) => {
 router.post('/negocios/:id/toggle', (req, res) => {
   db.prepare('UPDATE negocios SET activo = 1 - activo WHERE id = ?').run(req.params.id);
   res.redirect('/plataforma');
+});
+
+// BORRAR un negocio y TODOS sus datos. No se puede deshacer.
+// Traba de seguridad: hay que escribir el nombre exacto del negocio.
+router.post('/negocios/:id/borrar', (req, res) => {
+  const neg = db.prepare('SELECT id, nombre FROM negocios WHERE id = ?').get(req.params.id);
+  if (!neg) return res.redirect('/plataforma');
+
+  const escrito = (req.body.confirmar || '').trim().toLowerCase();
+  if (escrito !== neg.nombre.trim().toLowerCase()) {
+    return res.redirect('/plataforma?err=' + encodeURIComponent('No se borró nada: el nombre no coincide.'));
+  }
+
+  // Las tablas tienen ON DELETE CASCADE y foreign_keys está activo,
+  // así que al borrar el negocio se van también sus ventas, stock,
+  // gastos, pedidos, usuarios, jornadas, etc.
+  db.prepare('DELETE FROM negocios WHERE id = ?').run(neg.id);
+  res.redirect('/plataforma?ok=' + encodeURIComponent('Se borró "' + neg.nombre + '" y todos sus datos.'));
 });
 
 module.exports = router;
