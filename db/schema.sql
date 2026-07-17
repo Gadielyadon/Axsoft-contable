@@ -209,3 +209,15 @@ CREATE TABLE IF NOT EXISTS jornadas (
   FOREIGN KEY (equipo_id)  REFERENCES equipo(id)   ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_jornadas_neg ON jornadas(negocio_id, fecha);
+
+-- Medios de pago que configura cada negocio (para ventas y para gastos).
+CREATE TABLE IF NOT EXISTS medios_pago (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  negocio_id INTEGER NOT NULL,
+  nombre     TEXT NOT NULL,
+  para       TEXT NOT NULL DEFAULT 'venta',   -- venta | gasto
+  orden      INTEGER NOT NULL DEFAULT 0,
+  creado_en  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_medios_neg ON medios_pago(negocio_id, para, orden);

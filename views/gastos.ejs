@@ -22,7 +22,9 @@
       <div><label for="g-monto">Monto</label><input type="number" id="g-monto" name="monto" inputmode="numeric" placeholder="0" required></div>
       <div>
         <label for="g-pago">Medio de pago</label>
-        <select id="g-pago" name="pago"><option>Efectivo</option><option>Transferencia</option><option>Débito</option><option>Crédito</option></select>
+        <select id="g-pago" name="pago">
+          <% medios.forEach(function(m){ %><option><%= m.nombre %></option><% }); %>
+        </select>
       </div>
     </div>
     <label for="g-desc">Descripción</label>

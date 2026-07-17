@@ -41,7 +41,7 @@ router.get('/ventas', (req, res) => {
 
   const stock = db.prepare('SELECT id, nombre, cantidad, precio FROM stock WHERE negocio_id = ? ORDER BY nombre').all(req.negocioId);
   const empleados = db.prepare("SELECT nombre FROM usuarios WHERE negocio_id = ? AND activo = 1 ORDER BY nombre").all(req.negocioId);
-  res.render('ventas', { activeNav: 'ventas', ventas, stock, empleados });
+  res.render('ventas', { activeNav: 'ventas', ventas, stock, empleados, medios: mediosDe(req.negocioId, 'venta') });
 });
 
 // Toma las líneas del carrito (items[0][producto], items[0][precio], ...).
@@ -87,7 +87,21 @@ router.post('/ventas', (req, res) => {
   const lineas = lineasDeVenta(req.body);
   if (!lineas.length) return res.redirect('/ventas');
 
-  const ticket = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // El celular manda un identificador propio (uid). Sirve para que, si una venta
+  // se reintenta (por ejemplo, guardada sin señal), NO se cargue dos veces.
+  const uid = (req.body.uid || '').trim();
+  const ticket = /^[a-z0-9-]{6,40}$/i.test(uid)
+    ? uid
+    : ('t' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+
+  const yaEstaba = db.prepare('SELECT 1 x FROM ventas WHERE negocio_id = ? AND ticket = ? LIMIT 1')
+    .get(req.negocioId, ticket);
+  if (yaEstaba) {
+    // Ya la teníamos: contestamos que está todo bien y no duplicamos nada.
+    if (req.get('X-AxSoft') === '1') return res.json({ ok: true, ticket, repetida: true, stock: [] });
+    return res.redirect('/ventas');
+  }
+
   const vendedor = req.body.vendedor || req.session.user.nombre;
   const pago = req.body.pago || 'Efectivo';
   const cliente = req.body.cliente || '';
@@ -161,8 +175,9 @@ router.post('/ventas/borrar', (req, res) => {
 
 /* ===================== STOCK ===================== */
 router.get('/stock', (req, res) => {
-  const stock = db.prepare('SELECT * FROM stock WHERE negocio_id = ? ORDER BY id DESC').all(req.negocioId);
-  res.render('stock', { activeNav: 'stock', stock });
+  const stock = db.prepare('SELECT * FROM stock WHERE negocio_id = ? ORDER BY nombre COLLATE NOCASE').all(req.negocioId);
+  const categorias = db.prepare("SELECT DISTINCT categoria FROM stock WHERE negocio_id = ? AND categoria <> '' ORDER BY categoria").all(req.negocioId).map(r => r.categoria);
+  res.render('stock', { activeNav: 'stock', stock, categorias });
 });
 
 router.post('/stock', (req, res) => {
@@ -176,10 +191,11 @@ router.post('/stock', (req, res) => {
   res.redirect('/stock');
 });
 
-router.post('/stock/:id/ajustar', (req, res) => {
-  const delta = parseInt(req.body.delta, 10) || 0;
-  db.prepare('UPDATE stock SET cantidad = MAX(0, cantidad + ?) WHERE id = ? AND negocio_id = ?')
-    .run(delta, req.params.id, req.negocioId);
+// Fija la cantidad exacta que escribió la persona (en vez de sumar de a 1)
+router.post('/stock/:id/cantidad', (req, res) => {
+  const cant = Math.max(0, num(req.body.cantidad));
+  db.prepare('UPDATE stock SET cantidad = ? WHERE id = ? AND negocio_id = ?')
+    .run(cant, req.params.id, req.negocioId);
   res.redirect('/stock');
 });
 
@@ -211,7 +227,7 @@ router.get('/gastos', (req, res) => {
   const gastos = db.prepare('SELECT * FROM gastos WHERE negocio_id = ? ORDER BY id DESC LIMIT 40').all(req.negocioId);
   const empleados = db.prepare("SELECT nombre FROM usuarios WHERE negocio_id = ? AND activo = 1 ORDER BY nombre").all(req.negocioId);
   const categorias = categoriasDe(req.negocioId, 'gasto', CATEGORIAS_GASTO_DEFAULT);
-  res.render('gastos', { activeNav: 'gastos', gastos, empleados, categorias });
+  res.render('gastos', { activeNav: 'gastos', gastos, empleados, categorias, medios: mediosDe(req.negocioId, 'gasto') });
 });
 
 router.post('/gastos', (req, res) => {
@@ -259,6 +275,7 @@ router.post('/gastos/:id/borrar', (req, res) => {
 /* ===================== PEDIDOS ===================== */
 const ORDEN_ESTADOS = ['pendiente', 'proceso', 'listo', 'entregado'];
 const { camposPedidoDe, datosDePedido } = require('../lib/pedidos');
+const { mediosDe } = require('../lib/medios');
 
 router.get('/pedidos', (req, res) => {
   const campos = camposPedidoDe(req.negocioId);

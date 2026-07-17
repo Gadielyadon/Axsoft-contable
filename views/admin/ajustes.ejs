@@ -3,13 +3,55 @@
 <% var tipoLabel = { texto:'Texto', numero:'Número', fecha:'Fecha' }; %>
 <h1 class="title">Ajustes</h1>
 
-<% if (ok) { %><div class="alert ok">Campo agregado. Ya aparece en el formulario de Pedidos.</div><% } %>
+<% if (ok == 1) { %><div class="alert ok">Campo agregado. Ya aparece en el formulario de Pedidos.</div><% } %>
+<% if (ok == 2) { %><div class="alert ok">Medio de pago agregado.</div><% } %>
 <% if (impError) { %><div class="alert"><%= impError %></div><% } %>
 <% if (imp) { %>
   <div class="alert ok">
     Importación lista: <b><%= imp.nuevos %></b> productos nuevos, <b><%= imp.act %></b> actualizados<% if (imp.ign) { %>, <b><%= imp.ign %></b> filas ignoradas (sin nombre)<% } %>.
   </div>
 <% } %>
+
+<div class="card">
+  <h2 class="sub">Medios de pago</h2>
+  <p class="muted" style="margin:0 0 12px;">Los que aparecen al cargar una venta o un gasto. Agregá los que uses en tu negocio.</p>
+
+  <h3 style="font-size:12.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.4px; margin:0 0 8px;">En ventas</h3>
+  <div class="medios">
+    <% mediosVenta.forEach(function(m){ %>
+      <span class="medio">
+        <%= m.nombre %>
+        <form class="inline-form" method="post" action="/admin/ajustes/medios/<%= m.id %>/borrar" data-confirm="¿Borrar <%= m.nombre %>?">
+          <button type="submit">&times;</button>
+        </form>
+      </span>
+    <% }); %>
+  </div>
+  <form method="post" action="/admin/ajustes/medios" class="medio-form">
+    <input type="hidden" name="para" value="venta">
+    <input type="text" name="nombre" placeholder="Ej: Cuenta DNI, Naranja X..." required>
+    <button class="ghost" type="submit">Agregar</button>
+  </form>
+
+  <div style="height:1px; background:var(--line); margin:16px 0;"></div>
+
+  <h3 style="font-size:12.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.4px; margin:0 0 8px;">En gastos</h3>
+  <div class="medios">
+    <% mediosGasto.forEach(function(m){ %>
+      <span class="medio">
+        <%= m.nombre %>
+        <form class="inline-form" method="post" action="/admin/ajustes/medios/<%= m.id %>/borrar" data-confirm="¿Borrar <%= m.nombre %>?">
+          <button type="submit">&times;</button>
+        </form>
+      </span>
+    <% }); %>
+  </div>
+  <form method="post" action="/admin/ajustes/medios" class="medio-form">
+    <input type="hidden" name="para" value="gasto">
+    <input type="text" name="nombre" placeholder="Ej: Cheque, Fiado..." required>
+    <button class="ghost" type="submit">Agregar</button>
+  </form>
+</div>
 
 <div class="card">
   <h2 class="sub">Cargar productos desde Excel</h2>

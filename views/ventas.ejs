@@ -12,18 +12,14 @@
       <option>Otra</option>
     </select>
 
-    <label for="v-producto">Producto</label>
+    <% if (stock.length) { %>
+    <label for="v-buscar">Buscar producto</label>
     <div class="buscador">
       <div class="field-mic">
-        <input type="text" id="v-producto" autocomplete="off"
-               placeholder="<%= stock.length ? 'Escribí o tocá para buscar en tu stock' : 'Ej: trenza, extensión, producto...' %>"
+        <input type="text" id="v-buscar" autocomplete="off" placeholder="Escribí y tocá el producto..."
                oninput="buscarStock(this.value)" onfocus="buscarStock(this.value)">
-        <button type="button" class="mic" onclick="dictar('v-producto', this)"><%- micSvg %></button>
+        <button type="button" class="mic" onclick="dictar('v-buscar', this)"><%- micSvg %></button>
       </div>
-
-      <input type="hidden" id="v-stock-id" value="">
-
-      <% if (stock.length) { %>
       <div id="v-sug" class="sug" hidden>
         <% stock.forEach(function(s){ %>
           <button type="button" class="sug-item" onclick="elegirStock(this)"
@@ -36,38 +32,33 @@
             </span>
           </button>
         <% }); %>
-        <div id="v-sug-vacio" class="sug-vacio" hidden>No hay nada así en tu stock. Igual podés escribirlo a mano.</div>
-      </div>
-      <% } %>
-
-      <div id="v-vinculo" class="vinculo" hidden>
-        <span>Descuenta de stock: <b id="v-vinculo-txt"></b></span>
-        <button type="button" onclick="desvincularStock()">Quitar</button>
+        <div id="v-sug-vacio" class="sug-vacio" hidden>No hay nada así en tu stock. Podés cargarlo a mano más abajo.</div>
       </div>
     </div>
-
-    <label for="v-detalle">Detalle</label>
-    <div class="field-mic">
-      <input type="text" id="v-detalle" placeholder="Ej: fucsia, niña">
-      <button type="button" class="mic" onclick="dictar('v-detalle', this)"><%- micSvg %></button>
-    </div>
-
-    <div class="row2">
-      <div>
-        <label for="v-precio">Precio unitario</label>
-        <input type="number" id="v-precio" inputmode="numeric" placeholder="0">
-      </div>
-      <div>
-        <label for="v-cant">Cantidad</label>
-        <input type="number" id="v-cant" inputmode="numeric" value="1" min="1">
-      </div>
-    </div>
-
-    <button type="button" class="agregar" onclick="agregarAlCarrito()">+ Agregar a la venta</button>
+    <% } %>
 
     <div id="carrito" class="carrito" hidden>
       <div id="carrito-items"></div>
       <div class="carrito-total"><span>Total de la venta</span><b id="carrito-total">$0</b></div>
+    </div>
+
+    <button type="button" class="agregar" onclick="toggleManual()">+ Cargar algo que no está en el stock</button>
+    <div id="bloque-manual" hidden>
+      <label for="v-producto">Producto</label>
+      <div class="field-mic">
+        <input type="text" id="v-producto" autocomplete="off" placeholder="Ej: peinado, servicio...">
+        <button type="button" class="mic" onclick="dictar('v-producto', this)"><%- micSvg %></button>
+      </div>
+      <label for="v-detalle">Detalle</label>
+      <div class="field-mic">
+        <input type="text" id="v-detalle" placeholder="Ej: fucsia, niña">
+        <button type="button" class="mic" onclick="dictar('v-detalle', this)"><%- micSvg %></button>
+      </div>
+      <div class="row2">
+        <div><label for="v-precio">Precio unitario</label><input type="number" id="v-precio" inputmode="numeric" placeholder="0"></div>
+        <div><label for="v-cant">Cantidad</label><input type="number" id="v-cant" inputmode="numeric" value="1" min="1"></div>
+      </div>
+      <button type="button" class="agregar" onclick="agregarAlCarrito()">Agregar a la venta</button>
     </div>
 
     <div style="height:1px; background:var(--line); margin:16px 0;"></div>
@@ -76,8 +67,7 @@
       <div>
         <label for="v-pago">Medio de pago</label>
         <select id="v-pago" name="pago">
-          <option>Efectivo</option><option>Transferencia</option><option>Débito</option>
-          <option>Crédito</option><option>QR / Mercado Pago</option>
+          <% medios.forEach(function(m){ %><option><%= m.nombre %></option><% }); %>
         </select>
       </div>
       <div>
@@ -94,6 +84,7 @@
 
 <div class="col-list">
 <h2 class="sub">Últimas ventas</h2>
+<div id="banner-pend" class="banner-pend" hidden></div>
 <div id="ventas-vacio" class="empty" <%= ventas.length ? 'hidden' : '' %>>Todavía no hay ventas cargadas.</div>
 <div class="list-grid" id="lista-ventas">
 <% ventas.forEach(function(v){ %>

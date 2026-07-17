@@ -6,6 +6,7 @@ const { requireLogin, requireRole, tenant, SECCIONES, SECCION_KEYS } = require('
 const { enviarXLSX } = require('../lib/xlsx');
 const { camposPedidoDe, TIPOS_CAMPO } = require('../lib/pedidos');
 const { leerProductos, CAMPOS } = require('../lib/importar');
+const { mediosDe } = require('../lib/medios');
 const multer = require('multer');
 
 const MAX_EMPLEADOS = 5;
@@ -100,9 +101,10 @@ router.get('/caja', (req, res) => {
   ventas.forEach(v => { porVendedor[v.vendedor || '—'] = (porVendedor[v.vendedor || '—'] || 0) + v.precio; });
   const vendedores = Object.entries(porVendedor).sort((a, b) => b[1] - a[1]);
 
-  // Proyección (producción) vs real acumulado
-  const produccion = db.prepare('SELECT * FROM produccion WHERE negocio_id = ?').all(neg);
-  const proyTotal = produccion.reduce((s, p) => s + p.cantidad * p.precio, 0);
+  // Proyección vs real acumulado. La proyección sale del STOCK cargado:
+  // "si vendo todo lo que tengo, hago tanto". Antes había que cargar los
+  // productos dos veces (en Stock y en Producción); ahora es una sola.
+  const proyTotal = db.prepare('SELECT COALESCE(SUM(cantidad * precio),0) t FROM stock WHERE negocio_id = ?').get(neg).t;
   const realAcum = db.prepare('SELECT COALESCE(SUM(precio),0) t FROM ventas WHERE negocio_id = ?').get(neg).t;
 
   // Pedidos con saldo pendiente
@@ -175,22 +177,23 @@ router.post('/pagos/:id/borrar', (req, res) => {
 /* ===================== PRODUCCIÓN / OBJETIVO ===================== */
 router.get('/produccion', (req, res) => {
   const neg = req.negocioId;
-  const produccion = db.prepare('SELECT * FROM produccion WHERE negocio_id = ? ORDER BY id DESC').all(neg);
-  const ingreso = produccion.reduce((s, p) => s + p.cantidad * p.precio, 0);
-  const costo = produccion.reduce((s, p) => s + p.cantidad * p.costo, 0);
-  const objetivo = objetivoDe(neg);
-  res.render('admin/produccion', {
-    activeAdmin: 'produccion', produccion, ingreso, costo, margen: ingreso - costo, objetivo,
-    diffObjetivo: objetivo > 0 ? ingreso - objetivo : null
-  });
-});
 
-router.post('/produccion', (req, res) => {
-  const nombre = (req.body.nombre || '').trim();
-  if (!nombre) return res.redirect('/admin/produccion');
-  db.prepare('INSERT INTO produccion (negocio_id, nombre, cantidad, precio, costo) VALUES (?,?,?,?,?)')
-    .run(req.negocioId, nombre, num(req.body.cantidad), num(req.body.precio), num(req.body.costo));
-  res.redirect('/admin/produccion');
+  // Todo sale del stock que ya cargaste: no hay que cargar nada dos veces.
+  const items = db.prepare(`SELECT nombre, categoria, cantidad, precio, costo
+                            FROM stock WHERE negocio_id = ? AND cantidad > 0
+                            ORDER BY (cantidad * precio) DESC`).all(neg);
+  const ingreso = items.reduce((s, p) => s + p.cantidad * p.precio, 0);
+  const costo   = items.reduce((s, p) => s + p.cantidad * p.costo, 0);
+  const unidades = items.reduce((s, p) => s + p.cantidad, 0);
+  const objetivo = objetivoDe(neg);
+  const vendido = db.prepare('SELECT COALESCE(SUM(precio),0) t FROM ventas WHERE negocio_id = ?').get(neg).t;
+
+  res.render('admin/produccion', {
+    activeAdmin: 'produccion', items, ingreso, costo, unidades,
+    margen: ingreso - costo, objetivo, vendido,
+    diffObjetivo: objetivo > 0 ? ingreso - objetivo : null,
+    faltaVender: objetivo > 0 ? Math.max(objetivo - vendido, 0) : null
+  });
 });
 
 router.post('/produccion/objetivo', (req, res) => {
@@ -199,11 +202,6 @@ router.post('/produccion/objetivo', (req, res) => {
   const existe = db.prepare('SELECT negocio_id FROM config WHERE negocio_id = ?').get(neg);
   if (existe) db.prepare('UPDATE config SET objetivo = ? WHERE negocio_id = ?').run(obj, neg);
   else db.prepare('INSERT INTO config (negocio_id, objetivo) VALUES (?,?)').run(neg, obj);
-  res.redirect('/admin/produccion');
-});
-
-router.post('/produccion/:id/borrar', (req, res) => {
-  db.prepare('DELETE FROM produccion WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
   res.redirect('/admin/produccion');
 });
 
@@ -246,15 +244,12 @@ function horasEntre(desde, hasta) {
   return Math.round((min / 60) * 100) / 100;
 }
 
-router.get('/sueldos', (req, res) => {
-  const neg = req.negocioId;
-  const rango = resolverRango(req.query);
+// Calcula, para el período elegido, las horas/comisión/total de cada integrante
+function calcularSueldos(negocioId, rango) {
+  const equipo = db.prepare('SELECT * FROM equipo WHERE negocio_id = ? ORDER BY nombre COLLATE NOCASE').all(negocioId);
 
-  const equipo = db.prepare('SELECT * FROM equipo WHERE negocio_id = ? ORDER BY nombre COLLATE NOCASE').all(neg);
-
-  // --- jornadas del periodo ---
   let sqlJ = 'SELECT j.*, e.nombre AS persona FROM jornadas j JOIN equipo e ON e.id = j.equipo_id WHERE j.negocio_id = ?';
-  const parJ = [neg];
+  const parJ = [negocioId];
   if (rango.desde) { sqlJ += ' AND j.fecha >= ?'; parJ.push(rango.desde); }
   if (rango.hasta) { sqlJ += ' AND j.fecha <= ?'; parJ.push(rango.hasta); }
   sqlJ += ' ORDER BY j.fecha DESC, j.id DESC';
@@ -263,9 +258,8 @@ router.get('/sueldos', (req, res) => {
   const horasPorEquipo = {};
   jornadas.forEach(j => { horasPorEquipo[j.equipo_id] = (horasPorEquipo[j.equipo_id] || 0) + j.horas; });
 
-  // --- ventas del periodo, por vendedor (para la comision) ---
   let sqlV = 'SELECT vendedor, SUM(precio) t FROM ventas WHERE negocio_id = ?';
-  const parV = [neg];
+  const parV = [negocioId];
   if (rango.desde) { sqlV += " AND date(creado_en) >= ?"; parV.push(rango.desde); }
   if (rango.hasta) { sqlV += " AND date(creado_en) <= ?"; parV.push(rango.hasta); }
   sqlV += ' GROUP BY vendedor';
@@ -284,7 +278,15 @@ router.get('/sueldos', (req, res) => {
     return { ...e, horasPeriodo: horas, base, ventasP, comisionMonto, total };
   });
 
-  // --- rentabilidad del mismo periodo ---
+  return { filas, jornadas, totalSueldos, totalHoras };
+}
+
+// Pantalla principal: el equipo, con el sueldo de cada uno en el período
+router.get('/sueldos', (req, res) => {
+  const neg = req.negocioId;
+  const rango = resolverRango(req.query);
+  const { filas, totalSueldos, totalHoras } = calcularSueldos(neg, rango);
+
   let sqlG = 'SELECT COALESCE(SUM(monto),0) t FROM gastos WHERE negocio_id = ?';
   const parG = [neg];
   if (rango.desde) { sqlG += " AND date(creado_en) >= ?"; parG.push(rango.desde); }
@@ -298,9 +300,25 @@ router.get('/sueldos', (req, res) => {
   const ventasTotal = db.prepare(sqlVT).get(...parVT).t;
 
   res.render('admin/sueldos', {
-    activeAdmin: 'sueldos', filas, jornadas, totalSueldos, totalHoras,
+    activeAdmin: 'sueldos', filas, totalSueldos, totalHoras,
     ventasTotal, gastosOp, neto: ventasTotal - gastosOp - totalSueldos,
     rango, hoy: hoyISO()
+  });
+});
+
+// Pantalla de UNA persona: cargar jornadas y ver lo suyo
+router.get('/sueldos/:id', (req, res) => {
+  const neg = req.negocioId;
+  const rango = resolverRango(req.query);
+  const persona = db.prepare('SELECT * FROM equipo WHERE id = ? AND negocio_id = ?').get(req.params.id, neg);
+  if (!persona) return res.redirect('/admin/sueldos');
+
+  const { filas, jornadas } = calcularSueldos(neg, rango);
+  const fila = filas.find(f => f.id === persona.id);
+  const suyas = jornadas.filter(j => j.equipo_id === persona.id);
+
+  res.render('admin/sueldo-persona', {
+    activeAdmin: 'sueldos', persona, fila, jornadas: suyas, rango, hoy: hoyISO()
   });
 });
 
@@ -518,6 +536,8 @@ router.get('/ajustes', (req, res) => {
   res.render('admin/ajustes', {
     activeAdmin: 'ajustes', campos, tipos: TIPOS_CAMPO, ok: req.query.ok || null,
     CAMPOS,
+    mediosVenta: mediosDe(req.negocioId, 'venta'),
+    mediosGasto: mediosDe(req.negocioId, 'gasto'),
     imp: (req.query.nuevos || req.query.act || req.query.ign)
       ? { nuevos: +req.query.nuevos || 0, act: +req.query.act || 0, ign: +req.query.ign || 0 }
       : null,
@@ -555,6 +575,26 @@ router.post('/ajustes/campos/:id/mover', (req, res) => {
     db.prepare('UPDATE pedido_campos SET orden = ? WHERE id = ? AND negocio_id = ?').run(a.orden, b.id, req.negocioId);
   });
   tx();
+  res.redirect('/admin/ajustes');
+});
+
+/* ===================== AJUSTES · MEDIOS DE PAGO ===================== */
+router.post('/ajustes/medios', (req, res) => {
+  const nombre = (req.body.nombre || '').trim();
+  const para = (req.body.para === 'gasto') ? 'gasto' : 'venta';
+  if (!nombre) return res.redirect('/admin/ajustes');
+  const ya = db.prepare('SELECT id FROM medios_pago WHERE negocio_id = ? AND para = ? AND lower(nombre) = lower(?)')
+    .get(req.negocioId, para, nombre);
+  if (ya) return res.redirect('/admin/ajustes');
+  const max = db.prepare('SELECT COALESCE(MAX(orden),-1) m FROM medios_pago WHERE negocio_id = ? AND para = ?')
+    .get(req.negocioId, para).m;
+  db.prepare('INSERT INTO medios_pago (negocio_id, nombre, para, orden) VALUES (?,?,?,?)')
+    .run(req.negocioId, nombre, para, max + 1);
+  res.redirect('/admin/ajustes?ok=2');
+});
+
+router.post('/ajustes/medios/:id/borrar', (req, res) => {
+  db.prepare('DELETE FROM medios_pago WHERE id = ? AND negocio_id = ?').run(req.params.id, req.negocioId);
   res.redirect('/admin/ajustes');
 });
 

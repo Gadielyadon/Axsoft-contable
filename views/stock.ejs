@@ -1,48 +1,77 @@
 <%- include('partials/head') %>
-<h1 class="title">Cargar / ajustar stock</h1>
+<% var micSvg = '<svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4M8 22h8"/></svg>'; %>
+<h1 class="title">Stock</h1>
 
 <div class="layout-2col">
 <div class="col-form">
 <div class="card">
+  <h2 class="sub">Agregar producto</h2>
   <form method="post" action="/stock">
-    <label for="s-cat">Categoría</label>
-    <input type="text" id="s-cat" name="categoria" placeholder="Ej: Extensiones">
-    <label for="s-nom">Nombre / descripción</label>
-    <input type="text" id="s-nom" name="nombre" placeholder="Ej: Extensión rubio 60cm" required>
-    <div class="row2">
-      <div><label for="s-cant">Cantidad</label><input type="number" id="s-cant" name="cantidad" inputmode="numeric" placeholder="0"></div>
-      <div><label for="s-prec">Precio venta</label><input type="number" id="s-prec" name="precio" inputmode="numeric" placeholder="0"></div>
+    <label for="s-nom">¿Qué es?</label>
+    <div class="field-mic">
+      <input type="text" id="s-nom" name="nombre" placeholder="Ej: Extensión rubia 60cm" required>
+      <button type="button" class="mic" onclick="dictar('s-nom', this)"><%- micSvg %></button>
     </div>
-    <label for="s-costo">Costo aprox (opcional)</label>
-    <input type="number" id="s-costo" name="costo" inputmode="numeric" placeholder="0">
+
+    <label for="s-cant">¿Cuántos tenés?</label>
+    <div class="cant-linea">
+      <button type="button" onclick="sumarCampo('s-cant', -1)">−</button>
+      <input type="number" id="s-cant" name="cantidad" inputmode="numeric" value="1" min="0">
+      <button type="button" onclick="sumarCampo('s-cant', 1)">+</button>
+    </div>
+
+    <div class="row2">
+      <div><label for="s-prec">Precio de venta</label><input type="number" id="s-prec" name="precio" inputmode="numeric" placeholder="0"></div>
+      <div><label for="s-costo">Costo (opcional)</label><input type="number" id="s-costo" name="costo" inputmode="numeric" placeholder="0"></div>
+    </div>
+
+    <label for="s-cat">Categoría (opcional)</label>
+    <input type="text" id="s-cat" name="categoria" list="cats" placeholder="Ej: Extensiones">
+    <datalist id="cats">
+      <% categorias.forEach(function(c){ %><option value="<%= c %>"><% }); %>
+    </datalist>
+
     <button class="primary" type="submit">Agregar al stock</button>
   </form>
+  <div class="hint" style="margin-top:12px;">¿Tenés muchos productos? Podés cargarlos todos juntos desde <b>Ajustes → Cargar productos desde Excel</b>.</div>
 </div>
 </div>
 
 <div class="col-list">
-<h2 class="sub">Stock actual</h2>
+<h2 class="sub">Stock actual (<%= stock.length %>)</h2>
+
+<% if (stock.length) { %>
+<div class="card" style="padding:10px 12px; margin-bottom:12px;">
+  <input type="text" id="s-buscar" autocomplete="off" placeholder="Buscar en tu stock..."
+         oninput="filtrarStock(this.value)">
+  <div id="s-sin" class="muted" style="margin-top:8px; text-align:center;" hidden>No hay nada con ese nombre.</div>
+</div>
+<% } %>
+
 <% if (!stock.length) { %>
   <div class="empty">Todavía no cargaste stock.</div>
-<% } else { %><div class="list-grid"><% stock.forEach(function(s){ %>
-  <div class="item">
+<% } else { %><div class="list-grid" id="lista-stock"><% stock.forEach(function(s){ %>
+  <div class="item stock-item" data-q="<%= (s.nombre + ' ' + (s.categoria||'')).toLowerCase() %>">
     <form class="inline-form" method="post" action="/stock/<%= s.id %>/borrar" data-confirm="¿Borrar <%= s.nombre %>?">
       <button class="del" type="submit">&times;</button>
     </form>
     <div class="head">
       <span class="name"><%= s.nombre %></span>
-      <span class="qty"><%= s.cantidad %></span>
+      <span class="qty-big"><%= s.cantidad %></span>
     </div>
     <div class="meta">
       <% if (s.categoria) { %><span class="chip"><%= s.categoria %></span><% } %>
       <span class="chip pay"><%= fmt(s.precio) %></span>
       <% if (s.cantidad <= 2) { %><span class="chip low">stock bajo</span><% } %>
     </div>
-    <div class="qty-btns">
-      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="-1"><button type="submit" style="width:100%;">-1</button></form>
-      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="1"><button type="submit" style="width:100%;">+1</button></form>
-      <form class="inline-form" method="post" action="/stock/<%= s.id %>/ajustar" style="flex:1;"><input type="hidden" name="delta" value="5"><button type="submit" style="width:100%;">+5</button></form>
-    </div>
+    <form method="post" action="/stock/<%= s.id %>/cantidad" class="stock-cant">
+      <div class="cant-fila">
+        <button type="button" onclick="sumarCampo('c<%= s.id %>', -1)">−</button>
+        <input type="number" id="c<%= s.id %>" name="cantidad" value="<%= s.cantidad %>" min="0" inputmode="numeric">
+        <button type="button" onclick="sumarCampo('c<%= s.id %>', 1)">+</button>
+      </div>
+      <button type="submit" class="guardar-cant">Guardar</button>
+    </form>
   </div>
 <% }); %></div><% } %>
 </div>
